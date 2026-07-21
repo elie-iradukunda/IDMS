@@ -1,0 +1,859 @@
+<!-- Inclusive Disability Support IMS - Kamonyi District -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Disability Support IMS · Kamonyi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<style>
+  :root{
+    --bg:#eff8ff; --surface:#ffffff; --surface-2:#f5fbff; --surface-3:#e4f3fd;
+    --border:#d3e9f8; --border-2:#b6dbf3;
+    --text:#0b2a3f; --muted:#4d6d84; --muted-2:#7d9bb0;
+    --sky:#0284c7; --sky-600:#0369a1; --sky-700:#075985; --sky-soft:#e0f2fe;
+    --amber:#b45309; --amber-soft:#fef3c7; --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2; --violet:#6d28d9; --violet-soft:#ede9fe;
+    --radius:16px; --shadow:0 10px 30px -14px rgba(2,132,199,.35); --focus:#0284c7;
+  }
+  /* high-contrast mode (WCAG 1.4.3 / user preference) */
+  body.hc{--bg:#000;--surface:#0a0a0a;--surface-2:#141414;--surface-3:#1c1c1c;
+    --border:#5a5a5a;--border-2:#7a7a7a;--text:#fff;--muted:#e8e8e8;--muted-2:#cfcfcf;
+    --sky:#ffd400;--sky-600:#ffd400;--sky-700:#ffe34d;--sky-soft:#332b00;
+    --amber:#ffb000;--amber-soft:#332600;--green:#00e676;--green-soft:#052e1a;
+    --red:#ff5252;--red-soft:#330d0d;--violet:#c4a3ff;--violet-soft:#1a0d33;
+    --focus:#ffd400;--shadow:none}
+  body.hc .btn{color:#000}
+  body.hc .logo{border:1px solid var(--border-2)}
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body,#root{height:100%}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--text);
+    background:radial-gradient(1100px 460px at 50% -160px,#bae6fd,transparent 60%),var(--bg);
+    -webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit}
+  /* visible keyboard focus (WCAG 2.4.7) */
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+    outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+  .sky-grad{background:linear-gradient(135deg,#38bdf8,#0369a1)}
+
+  /* 44px minimum touch targets (WCAG 2.5.5) */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:11px;
+    background:var(--sky);color:#fff;font-weight:700;font-size:15px;padding:12px 18px;transition:.15s;min-height:44px}
+  .btn:hover{background:var(--sky-600)}
+  .btn.block{width:100%}
+  .btn.sm{padding:9px 14px;font-size:14px;min-height:40px;border-radius:9px}
+  .btn.ghost{background:var(--surface);border:1.5px solid var(--border-2);color:var(--sky-700)}
+  .btn.ghost:hover{background:var(--sky-soft)}
+  .btn.green{background:var(--green)} .btn.amber{background:var(--amber)}
+  .btn.red{background:var(--surface);border:1.5px solid var(--red);color:var(--red)}
+  .btn.red:hover{background:var(--red-soft)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  .login-wrap{min-height:100%;display:flex;flex-direction:column}
+  .login-body{flex:1;display:flex;align-items:center;justify-content:center;padding:22px}
+  .login-card{width:100%;max-width:470px;background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:32px 30px;box-shadow:var(--shadow)}
+  .logo{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;box-shadow:0 8px 18px -6px rgba(2,132,199,.9)}
+  .login-title{font-size:25px;font-weight:800;margin-top:18px;letter-spacing:-.5px;line-height:1.15}
+  .login-sub{color:var(--muted);font-size:15px;margin-top:5px}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:14px;font-weight:600;color:var(--text);margin-bottom:7px}
+  .input{width:100%;background:var(--surface);border:1.5px solid var(--border-2);border-radius:11px;padding:12px 14px;color:var(--text);font-size:15px;transition:.15s}
+  .input:focus{outline:none;border-color:var(--sky);box-shadow:0 0 0 4px var(--sky-soft)}
+  textarea.input{resize:vertical;min-height:88px;line-height:1.5}
+  .err{color:var(--red);font-size:14px;margin-top:10px;font-weight:600}
+  .demo{margin-top:22px;border-top:1px solid var(--border);padding-top:16px}
+  .demo-h{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted-2);margin-bottom:10px;font-weight:700}
+  .chip{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface-2);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:8px;transition:.15s;color:var(--text)}
+  .chip:hover{border-color:var(--sky);background:var(--sky-soft)}
+  .chip-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .chip-t{font-size:14.5px;font-weight:700}.chip-e{font-size:12.5px;color:var(--muted)}
+
+  .a11y{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:8px 16px;background:var(--surface-3);border-bottom:1px solid var(--border);flex-wrap:wrap;font-size:13px}
+  .a11y .grp{display:flex;align-items:center;gap:4px;background:var(--surface);border:1.5px solid var(--border-2);border-radius:9px;padding:3px}
+  .a11y .lbl{color:var(--muted);font-weight:600}
+  .a11y button{background:none;border:none;color:var(--text);font-weight:700;padding:6px 10px;border-radius:6px;min-width:36px;font-size:13px}
+  .a11y button.on{background:var(--sky);color:#fff}
+  body.hc .a11y button.on{color:#000}
+  .a11y button:hover:not(.on){background:var(--sky-soft)}
+
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:13px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-name{font-weight:800;font-size:15px;letter-spacing:-.3px}
+  .role-tag{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px}
+  .spacer{flex:1}
+  .who{text-align:right;line-height:1.25}.who-r{font-size:13px;font-weight:700}.who-e{font-size:11.5px;color:var(--muted)}
+  .page{max-width:1080px;margin:0 auto;padding:24px 20px 80px}
+  .page-h{font-size:23px;font-weight:800;letter-spacing:-.4px}
+  .page-sub{color:var(--muted);font-size:14.5px;margin-top:4px;max-width:78ch;line-height:1.5}
+
+  .tabs{display:flex;gap:8px;margin:20px 0 0;flex-wrap:wrap}
+  .tab{background:var(--surface);border:1.5px solid var(--border);color:var(--muted);font-size:14px;font-weight:700;padding:10px 15px;border-radius:11px;transition:.15s;display:flex;align-items:center;gap:7px;min-height:42px}
+  .tab:hover{border-color:var(--border-2);color:var(--text)}
+  .tab.active{background:var(--sky);border-color:var(--sky);color:#fff}
+  body.hc .tab.active{color:#000}
+  .tab .count{font-size:11.5px;background:rgba(0,0,0,.1);border-radius:10px;padding:1px 7px}
+  .tab.active .count{background:rgba(255,255,255,.3)}
+  body.hc .tab.active .count{background:rgba(0,0,0,.25)}
+
+  .grid{display:grid;gap:14px;margin-top:22px}
+  .g2{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+  .stats{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:22px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .stat-l{font-size:13px;color:var(--muted);font-weight:600}
+  .stat-v{font-size:30px;font-weight:800;margin-top:5px;letter-spacing:-.6px;color:var(--sky-700)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .card-t{font-weight:800;font-size:16px;letter-spacing:-.2px}
+  .code{font-family:ui-monospace,monospace;font-weight:700;color:var(--sky-700);font-size:14px}
+  .meta{color:var(--muted);font-size:13.5px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;line-height:1.5}
+  .meta b{color:var(--text);font-weight:600}
+  .rec{margin-top:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:12px 13px;font-size:14px;line-height:1.55}
+  .rl{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted-2);margin-bottom:2px}
+  .rr+.rl{margin-top:10px}
+  .row-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px}
+  .dot{width:6px;height:6px;border-radius:50%}
+  .b-sky{background:var(--sky-soft);color:var(--sky-700)}.b-sky .dot{background:var(--sky)}
+  .b-green{background:var(--green-soft);color:var(--green)}.b-green .dot{background:var(--green)}
+  .b-amber{background:var(--amber-soft);color:var(--amber)}.b-amber .dot{background:var(--amber)}
+  .b-red{background:var(--red-soft);color:var(--red)}.b-red .dot{background:var(--red)}
+  .b-violet{background:var(--violet-soft);color:var(--violet)}.b-violet .dot{background:var(--violet)}
+  .b-gray{background:var(--surface-3);color:var(--muted)}.b-gray .dot{background:var(--muted-2)}
+
+  .empty{border:2px dashed var(--border-2);border-radius:var(--radius);padding:40px;text-align:center;color:var(--muted);margin-top:22px;background:var(--surface)}
+  .empty b{color:var(--text);display:block;margin-bottom:5px;font-size:16px}
+  .form-grid{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-top:14px}
+  .form-grid .full{grid-column:1/-1}
+  @media(max-width:560px){.form-grid{grid-template-columns:1fr}}
+  .wg{display:grid;grid-template-columns:1fr 170px 44px;gap:8px;align-items:center;padding:7px 0}
+  .consent{display:flex;gap:10px;align-items:flex-start;margin-top:16px;background:var(--sky-soft);border-radius:11px;padding:12px 13px;font-size:13.5px;line-height:1.5;cursor:pointer}
+  .consent input{width:20px;height:20px;margin-top:2px;flex-shrink:0}
+
+  .tl{margin-top:14px;border-left:2px solid var(--border-2);padding-left:16px;display:flex;flex-direction:column;gap:11px}
+  .tl-item{position:relative}
+  .tl-item::before{content:"";position:absolute;left:-22px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--sky);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--sky-soft)}
+  .tl-t{font-size:14px;font-weight:600}.tl-w{font-size:12px;color:var(--muted-2)}
+
+  .opp{border-left:4px solid var(--amber)}
+  .opp.job{border-left-color:var(--sky)} .opp.scholarship{border-left-color:var(--violet)} .opp.training{border-left-color:var(--green)}
+  .warn{background:var(--red-soft);border:1.5px solid var(--red);border-radius:12px;padding:13px;margin-top:14px;font-size:14px;color:var(--red);line-height:1.5}
+  .success{background:var(--green-soft);border:1.5px solid var(--green);border-radius:var(--radius);padding:24px;text-align:center;margin-top:22px}
+  .success .big{font-size:36px}
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px}
+  th{text-align:left;color:var(--muted);font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;padding:9px 10px;border-bottom:2px solid var(--border)}
+  td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .notif{display:flex;gap:11px;padding:13px 0;border-bottom:1px solid var(--border)}
+  .notif-ico{width:36px;height:36px;border-radius:10px;background:var(--sky-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1.5px solid var(--green);color:var(--green);padding:13px 20px;border-radius:12px;font-size:14.5px;font-weight:600;z-index:200;box-shadow:0 20px 40px -15px rgba(0,0,0,.25);max-width:90vw}
+  small.hint{color:var(--muted-2);font-size:12.5px;line-height:1.45}
+  .bar{height:9px;background:var(--surface-3);border-radius:8px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#0369a1);border-radius:8px}
+  body.hc .bar>i{background:var(--sky)}
+</style>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const {useState} = React;
+
+/* ───────── bilingual labels (proposal Table 6: EN + Kinyarwanda) ───────── */
+const T = {
+  appName:['Disability Support IMS',"Sisitemu y'Ubufasha bw'Abafite Ubumuga"],
+  tagline:['Inclusive registry & support coordination · Kamonyi District','Registry irimo bose & guhuza ubufasha · Akarere ka Kamonyi'],
+  email:['Email','Imeyili'], password:['Password','Ijambobanga'], login:['Log in','Injira'], logout:['Log out','Sohoka'],
+  demo:['Demo accounts (tap to sign in)','Konti zo kwipimisha (kanda winjire)'],
+  lang:['Language','Ururimi'], text:['Text','Inyandiko'], contrast:['Contrast','Ibara'],
+  save:['Save','Bika'], cancel:['Cancel','Reka'], submit:['Submit','Ohereza'],
+  officer:['Local Officer',"Umukozi w'Akarere"], beneficiary:['Beneficiary / Guardian','Uwunguka / Umurezi'],
+  provider:['Support Provider','Utanga Ubufasha'], admin:['Administrator','Umuyobozi'],
+  REQUESTED:['Requested','Byasabwe'], APPROVED_URGENT:['Approved · Urgent','Byemejwe · Byihutirwa'],
+  APPROVED_STANDARD:['Approved · Standard','Byemejwe · Bisanzwe'], DISTRIBUTING:['Distributing','Biratangwa'],
+  COMPLETED:['Completed','Byarangiye'], INELIGIBLE:['Not eligible','Ntibyemewe'],
+};
+const DISABILITY = {
+  seeing:['Seeing','Kubona'], hearing:['Hearing','Kumva'], walking:['Walking / mobility','Kugenda'],
+  cognition:['Remembering / concentrating','Kwibuka'], selfcare:['Self-care','Kwitaho'], communication:['Communication','Kuvuga'],
+};
+const DIFFICULTY = { some:['Some difficulty','Ingorane nkeya'], alot:['A lot of difficulty','Ingorane nyinshi'], cannot:['Cannot do at all','Ntabasha na gato'] };
+
+const ROLES = {
+  officer:    {email:'officer@kamonyi.gov.rw',  color:'var(--sky-700)',bg:'var(--sky-soft)',   ico:'🧑‍💼'},
+  beneficiary:{email:'alice@beneficiary.rw',    color:'var(--green)',  bg:'var(--green-soft)', ico:'🧑‍🦯'},
+  provider:   {email:'provider@ngo.rw',         color:'var(--amber)',  bg:'var(--amber-soft)', ico:'🤝'},
+  admin:      {email:'admin@disability.gov.rw', color:'var(--violet)', bg:'var(--violet-soft)',ico:'🛡️'},
+};
+const EMAIL_TO_ROLE = Object.fromEntries(Object.entries(ROLES).map(([k,v])=>[v.email,k]));
+const REQ_BADGE = {REQUESTED:'b-amber',APPROVED_URGENT:'b-red',APPROVED_STANDARD:'b-sky',DISTRIBUTING:'b-violet',COMPLETED:'b-green',INELIGIBLE:'b-gray'};
+const SECTORS = ['Runda','Gacurabwenge','Musambira','Nyarubaka'];
+const ME = 'B-1001'; // the signed-in demo beneficiary
+
+/* ───────── seed data ───────── */
+function seed(){
+  return {
+    beneficiaries:[
+      {id:'B-1001',name:'Mukamana Alice',nid:'1198870...4021',sector:'Runda',cell:'Kabuga',village:'Nyakabungo',guardian:'—',email:'alice@beneficiary.rw',verified:true,
+        disabilities:[{type:'seeing',level:'alot'}],
+        challenges:'Cannot read printed documents; needs a guide on unfamiliar routes.',
+        needs:'A white cane and orientation & mobility training.'},
+      {id:'B-1002',name:'Habimana Jean',nid:'1199180...7714',sector:'Musambira',cell:'Kigusa',village:'Karambo',guardian:'Habimana Marie (mother)',email:'',verified:true,
+        disabilities:[{type:'walking',level:'cannot'}],
+        challenges:'Cannot walk unaided; crutches fail over long distances.',
+        needs:'A wheelchair suitable for rural terrain.'},
+      {id:'B-1003',name:'Uwase Claudine',nid:'1200070...1188',sector:'Gacurabwenge',cell:'Ntenyo',village:'Buhoro',guardian:'—',email:'',verified:false,
+        disabilities:[{type:'hearing',level:'alot'}],
+        challenges:'Cannot follow announcements at community meetings.',
+        needs:'A hearing aid and follow-up fitting.'},
+      {id:'B-1004',name:'Nsengimana Eric',nid:'1199560...9903',sector:'Runda',cell:'Kabuga',village:'Gitega',guardian:'—',email:'',verified:true,
+        disabilities:[{type:'cognition',level:'some'}],
+        challenges:'Forgets instructions quickly; needs support to learn a trade.',
+        needs:'Vocational training with a patient instructor.'},
+    ],
+    requests:[
+      {id:'R-501',benId:'B-1002',need:'A wheelchair suitable for rural terrain',origin:'officer',provider:null,status:'APPROVED_URGENT',
+        reason:'Cannot walk at all and lives 6 km from the health post; escalated for priority support.',
+        timeline:[{t:'Requested by officer',w:'2 days ago'},{t:'Approved — urgent, escalated for priority support (reason recorded)',w:'yesterday'}]},
+      {id:'R-502',benId:'B-1004',need:'Vocational training placement',origin:'provider',provider:'Inclusive Hands NGO',status:'DISTRIBUTING',
+        reason:'Recorded need matches the programme; matched with a local cooperative.',
+        timeline:[{t:'Provider submitted a support offer',w:'4 days ago'},{t:'Approved — standard, queued for distribution (reason recorded)',w:'2 days ago'},{t:'Distribution started with the provider',w:'today'}]},
+      {id:'R-503',benId:'B-1001',need:'White cane and mobility training',origin:'provider',provider:'Inclusive Hands NGO',status:'REQUESTED',reason:null,
+        timeline:[{t:'Provider submitted a support offer',w:'today'}]},
+      {id:'R-504',benId:'B-1003',need:'Hearing aid',origin:'officer',provider:null,status:'COMPLETED',
+        reason:'Eligible; device available from the district stock.',
+        timeline:[{t:'Requested by officer',w:'1 month ago'},{t:'Approved — standard (reason recorded)',w:'3 weeks ago'},{t:'Delivery confirmed — support history stored',w:'20 days ago'}]},
+    ],
+    opportunities:[
+      {id:'O-01',kind:'scholarship',title:'Bursary for students with disabilities',org:'NCPD',detail:'Full bursary covering tuition and materials at technical schools.',w:'today'},
+      {id:'O-02',kind:'job',title:'Reception assistant (accessible office)',org:'Kamonyi District',detail:'Ground-floor post suitable for applicants with mobility impairments.',w:'3 days ago'},
+      {id:'O-03',kind:'training',title:'Digital skills training',org:'Inclusive Tech Rwanda',detail:'Basic computer training, including screen readers.',w:'1 week ago'},
+    ],
+    corrections:[{id:'C-01',benId:'B-1001',text:'My village is recorded as Nyakabungo, but it is Gasharu.',field:'village',value:'Gasharu',status:'pending',w:'yesterday'}],
+    users:[
+      {name:'Officer Uwimana',email:'officer@kamonyi.gov.rw',role:'officer',scope:'Kamonyi District'},
+      {name:'Mukamana Alice',email:'alice@beneficiary.rw',role:'beneficiary',scope:'B-1001'},
+      {name:'Inclusive Hands NGO',email:'provider@ngo.rw',role:'provider',scope:'NGO'},
+      {name:'System Admin',email:'admin@disability.gov.rw',role:'admin',scope:'NCPD'},
+    ],
+    notifs:[
+      {to:'B-1001',ico:'🦯',t:'A support offer (white cane) was submitted for you — under review.',w:'today'},
+      {to:'B-1001',ico:'🎓',t:'New bursary published — see Opportunities.',w:'yesterday'},
+    ],
+    audit:[
+      {who:'Officer Uwimana',a:'Registered beneficiary B-1004 (Nsengimana Eric)',w:'2 days ago'},
+      {who:'Officer Uwimana',a:'Decided R-501 → APPROVED_URGENT (reason recorded)',w:'yesterday'},
+      {who:'System',a:'Credentials emailed for B-1001',w:'1 month ago'},
+    ],
+  };
+}
+let BID=1004, RID=504, OID=3, CID=1;
+
+/* ───────── engine (all state transitions live here) ───────── */
+function useEngine(){
+  const [db,setDb]=useState(seed);
+  const [toast,setToast]=useState('');
+  const say=m=>{setToast(m);clearTimeout(window.__t);window.__t=setTimeout(()=>setToast(''),3000)};
+  const audit=(who,a)=>setDb(d=>({...d,audit:[{who,a,w:'just now'},...d.audit]}));
+  const push=(to,ico,t)=>setDb(d=>({...d,notifs:[{to,ico,t,w:'just now'},...d.notifs]}));
+  const benOf=id=>db.beneficiaries.find(b=>b.id===id);
+
+  const findDuplicates=(f)=>db.beneficiaries.filter(b=>
+    (f.nid&&b.nid===f.nid.trim())||(f.name&&f.sector&&b.name.toLowerCase()===f.name.trim().toLowerCase()&&b.sector===f.sector));
+
+  function registerBeneficiary(f){
+    const id='B-'+(++BID);
+    setDb(d=>({...d,beneficiaries:[{...f,id,name:f.name.trim(),verified:true},...d.beneficiaries]}));
+    audit('Officer Uwimana',`Registered beneficiary ${id} (${f.name.trim()})`);
+    if(f.email){audit('System',`Credentials emailed for ${id}`);push(id,'📧','Your record was registered and your account created.');}
+    return id;
+  }
+  const updateBeneficiary=(id,patch,note)=>{
+    setDb(d=>({...d,beneficiaries:d.beneficiaries.map(b=>b.id===id?{...b,...patch}:b)}));
+    audit('Officer Uwimana',note||`Updated record ${id}`);
+  };
+  function createRequest(benId,need,origin,provider){
+    const id='R-'+(++RID);
+    setDb(d=>({...d,requests:[{id,benId,need,origin,provider:provider||null,status:'REQUESTED',reason:null,
+      timeline:[{t:origin==='provider'?'Provider submitted a support offer':'Requested by officer',w:'just now'}]},...d.requests]}));
+    audit(origin==='provider'?'Inclusive Hands NGO':'Officer Uwimana',`Created support request ${id} for ${benId}`);
+    push(benId,'🤝','A support request was created for you — it is under review.');
+    say(origin==='provider'?`Offer ${id} submitted — the officer will review it`:`Support request ${id} created`);
+  }
+  const DEC={urgent:['APPROVED_URGENT','Approved — urgent, escalated for priority support'],
+             standard:['APPROVED_STANDARD','Approved — standard, queued for distribution'],
+             ineligible:['INELIGIBLE','Recorded as not eligible — beneficiary notified with the reason']};
+  function decide(id,decision,reason){
+    const [status,label]=DEC[decision];
+    const r=db.requests.find(x=>x.id===id);
+    setDb(d=>({...d,requests:d.requests.map(x=>x.id===id?{...x,status,reason,timeline:[...x.timeline,{t:`${label} (reason recorded)`,w:'just now'}]}:x)}));
+    audit('Officer Uwimana',`Decided ${id} → ${status} (reason recorded)`);
+    push(r.benId,decision==='ineligible'?'ℹ️':'✅',decision==='ineligible'?`Support request not approved. Reason: ${reason}`:'Your support request was approved.');
+    say(`${id} — decision recorded`);
+  }
+  function advance(id,status,label,ico,msg){
+    const r=db.requests.find(x=>x.id===id);
+    setDb(d=>({...d,requests:d.requests.map(x=>x.id===id?{...x,status,timeline:[...x.timeline,{t:label,w:'just now'}]}:x)}));
+    audit('Officer Uwimana',`${id} → ${status}`);push(r.benId,ico,msg);say(`${id} — ${status.toLowerCase()}`);
+  }
+  const distribute=id=>advance(id,'DISTRIBUTING','Distribution started with the provider','📦','Your support is being distributed.');
+  const complete=id=>advance(id,'COMPLETED','Delivery confirmed — support history stored','🎉','Your support has been delivered and recorded.');
+
+  function requestCorrection(benId,text){
+    const id='C-'+(++CID);
+    setDb(d=>({...d,corrections:[{id,benId,text,field:null,value:null,status:'pending',w:'just now'},...d.corrections]}));
+    audit('Mukamana Alice',`Correction requested for ${benId}`);
+    say('Correction request sent to your officer');
+  }
+  // Applying a correction really changes the official record — the officer
+  // states which field and what it becomes, and the change is audited.
+  function applyCorrection(id,field,value){
+    const c=db.corrections.find(x=>x.id===id);
+    setDb(d=>({...d,
+      corrections:d.corrections.map(x=>x.id===id?{...x,status:'applied',field,value}:x),
+      beneficiaries:d.beneficiaries.map(b=>b.id===c.benId?{...b,[field]:value}:b)}));
+    audit('Officer Uwimana',`Correction ${id} applied to ${c.benId} (${field} → ${value})`);
+    push(c.benId,'✏️',`Your correction was applied: ${field} is now "${value}".`);
+    say(`Record ${c.benId} updated — ${field} → ${value}`);
+  }
+  function resolveCorrection(id,apply){
+    const c=db.corrections.find(x=>x.id===id);
+    setDb(d=>({...d,corrections:d.corrections.map(x=>x.id===id?{...x,status:apply?'applied':'declined'}:x)}));
+    audit('Officer Uwimana',`Correction ${id} ${apply?'applied':'declined'}`);
+    push(c.benId,'✏️',apply?'Your correction was applied to your record.':'Your correction request was reviewed and declined.');
+    say(`Correction ${apply?'applied':'declined'}`);
+  }
+  function publishOpportunity(o){
+    const id='O-'+(++OID);
+    setDb(d=>({...d,opportunities:[{...o,id,w:'just now'},...d.opportunities],
+      notifs:[...d.beneficiaries.map(b=>({to:b.id,ico:{scholarship:'🎓',job:'💼',training:'📚',announcement:'📣'}[o.kind],t:`New ${o.kind}: ${o.title}`,w:'just now'})),...d.notifs]}));
+    audit(o.org||'—',`Published ${o.kind}: ${o.title}`);
+    say('Published — every registered beneficiary was notified');
+  }
+  return {db,toast,say,benOf,findDuplicates,registerBeneficiary,updateBeneficiary,createRequest,decide,distribute,complete,requestCorrection,applyCorrection,resolveCorrection,publishOpportunity};
+}
+
+/* ───────── shared UI ───────── */
+function A11yBar({a,setA,t}){
+  return <div className="a11y" role="region" aria-label="Accessibility settings">
+    <span className="lbl">🌐 {t('lang')}</span>
+    <div className="grp">{['en','rw'].map(l=><button key={l} className={a.lang===l?'on':''} onClick={()=>setA({...a,lang:l})} aria-pressed={a.lang===l}>{l.toUpperCase()}</button>)}</div>
+    <span className="lbl">🔠 {t('text')}</span>
+    <div className="grp">
+      <button onClick={()=>setA({...a,zoom:Math.max(1,+(a.zoom-0.1).toFixed(2))})} aria-label="Decrease text size">A−</button>
+      <button onClick={()=>setA({...a,zoom:1})} aria-label="Reset text size">A</button>
+      <button onClick={()=>setA({...a,zoom:Math.min(1.5,+(a.zoom+0.1).toFixed(2))})} aria-label="Increase text size" style={{fontSize:16}}>A+</button>
+    </div>
+    <span className="lbl">◐ {t('contrast')}</span>
+    <div className="grp"><button className={a.hc?'on':''} onClick={()=>setA({...a,hc:!a.hc})} aria-pressed={a.hc}>{a.hc?'ON':'OFF'}</button></div>
+  </div>;
+}
+function Tabs({tabs,active,set}){return <div className="tabs" role="tablist">{tabs.map(x=>(
+  <button key={x.k} role="tab" aria-selected={active===x.k} className={"tab "+(active===x.k?'active':'')} onClick={()=>set(x.k)}>{x.label}{x.count?<span className="count">{x.count}</span>:null}</button>))}</div>}
+function Empty({title,sub}){return <div className="empty"><b>{title}</b>{sub}</div>}
+function Timeline({items}){return <div className="tl">{items.map((it,i)=><div key={i} className="tl-item"><div className="tl-t">{it.t}</div><div className="tl-w">{it.w}</div></div>)}</div>}
+function ReqBadge({status,t}){return <span className={"badge "+(REQ_BADGE[status]||'b-gray')}><span className="dot"/>{t(status)}</span>}
+function Tags({list,t}){return <>{list.map((d,i)=><span key={i} className="badge b-sky" style={{marginRight:6,marginBottom:4}}><span className="dot"/>{t.d(d.type)} · {t.diff(d.level)}</span>)}</>}
+
+/* ═══════════ LOGIN ═══════════ */
+function Login({onLogin,a,setA,t}){
+  const [email,setEmail]=useState('');const [pw,setPw]=useState('');const [err,setErr]=useState('');
+  function submit(){
+    const r=EMAIL_TO_ROLE[email.trim().toLowerCase()];
+    if(!r){setErr(t.x('Email not recognised. Use one of the four demo accounts below.','Iyi imeyili ntizwi. Koresha imwe muri konti 4 zo hepfo.'));return}
+    if(!pw){setErr(t.x('Enter a password.','Andika ijambobanga.'));return}
+    onLogin(r);
+  }
+  return <div className="login-wrap">
+    <A11yBar a={a} setA={setA} t={t}/>
+    <div className="login-body"><div className="login-card">
+      <div className="logo sky-grad">IDS</div>
+      <h1 className="login-title">{t('appName')}</h1>
+      <div className="login-sub">{t('tagline')}</div>
+      <div className="field"><label htmlFor="em">{t('email')}</label>
+        <input id="em" className="input" value={email} onChange={e=>{setEmail(e.target.value);setErr('')}} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="name@domain.rw"/></div>
+      <div className="field"><label htmlFor="pw">{t('password')}</label>
+        <input id="pw" type="password" className="input" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}} onKeyDown={e=>e.key==='Enter'&&submit()} placeholder="••••••••"/></div>
+      {err&&<div className="err" role="alert">{err}</div>}
+      <button className="btn block" style={{marginTop:18}} onClick={submit}>{t('login')}</button>
+      <div className="demo"><div className="demo-h">{t('demo')}</div>
+        {Object.entries(ROLES).map(([k,r])=><button key={k} className="chip" onClick={()=>onLogin(k)}>
+          <span className="chip-ico" style={{background:r.bg}}>{r.ico}</span>
+          <span><div className="chip-t">{t(k)}</div><div className="chip-e">{r.email}</div></span></button>)}
+      </div>
+    </div></div>
+  </div>;
+}
+function Shell({role,onLogout,a,setA,t,children}){
+  const r=ROLES[role];
+  return <div>
+    <A11yBar a={a} setA={setA} t={t}/>
+    <div className="topbar">
+      <div className="brand"><div className="logo sky-grad" style={{width:34,height:34,fontSize:12,borderRadius:9}}>IDS</div>
+        <div className="brand-name">{t('appName')}</div>
+        <span className="role-tag" style={{background:r.bg,color:r.color}}>{r.ico} {t(role)}</span></div>
+      <div className="spacer"/>
+      <div className="who"><div className="who-r">{t(role)}</div><div className="who-e">{r.email}</div></div>
+      <button className="btn ghost sm" onClick={onLogout}>{t('logout')}</button>
+    </div>
+    <div style={{zoom:a.zoom}}>{children}</div>
+  </div>;
+}
+
+/* ═══════════ OFFICER ═══════════ */
+function Officer({eng,t}){
+  const [tab,setTab]=useState('registry');
+  const pendingReq=eng.db.requests.filter(r=>r.status==='REQUESTED').length;
+  const pendingCorr=eng.db.corrections.filter(c=>c.status==='pending').length;
+  const tabs=[
+    {k:'registry',label:t.x('Registry','Registry'),count:eng.db.beneficiaries.length},
+    {k:'register',label:t.x('Register beneficiary','Kwandika')},
+    {k:'requests',label:t.x('Support requests','Ibyifuzo'),count:pendingReq},
+    {k:'corrections',label:t.x('Corrections','Gukosora'),count:pendingCorr},
+    {k:'publish',label:t.x('Publish opportunity','Tangaza')},
+  ];
+  return <div className="page">
+    <h1 className="page-h">{t.x('Local Officer','Umukozi w\'Akarere')} — Kamonyi District</h1>
+    <div className="page-sub">{t.x('Register beneficiaries, maintain the official record, coordinate support with a recorded reason for every decision, and publish opportunities.','Andika abunguka, ubike inyandiko yemewe, uhuze ubufasha wandika impamvu, kandi utangaze amahirwe.')}</div>
+    <Tabs tabs={tabs} active={tab} set={setTab}/>
+    {tab==='registry'&&<Registry eng={eng} t={t}/>}
+    {tab==='register'&&<RegisterForm eng={eng} t={t} goto={()=>setTab('registry')}/>}
+    {tab==='requests'&&<div className="grid g2">{eng.db.requests.map(r=><OfficerReq key={r.id} r={r} eng={eng} t={t}/>)}</div>}
+    {tab==='corrections'&&<Corrections eng={eng} t={t}/>}
+    {tab==='publish'&&<PublishForm eng={eng} t={t} org="Kamonyi District"/>}
+  </div>;
+}
+function Registry({eng,t}){
+  const [q,setQ]=useState('');
+  const rows=eng.db.beneficiaries.filter(b=>[b.name,b.id,b.sector,b.needs].join(' ').toLowerCase().includes(q.toLowerCase()));
+  return <>
+    <div style={{marginTop:20}}><label htmlFor="sq" className="sr-only"></label>
+      <input id="sq" className="input" placeholder={t.x('Search by name, code, sector or need…','Shakisha izina, code, umurenge…')} value={q} onChange={e=>setQ(e.target.value)}/></div>
+    {rows.length?<div className="grid g2">{rows.map(b=><BenCard key={b.id} b={b} eng={eng} t={t}/>)}</div>
+      :<Empty title={t.x('No matching records','Nta cyabonetse')} sub={t.x('Try a different search term.','Gerageza andi magambo.')}/>}
+  </>;
+}
+function BenCard({b,eng,t}){
+  const [edit,setEdit]=useState(false);
+  const [f,setF]=useState({needs:b.needs,village:b.village});
+  const save=()=>{eng.updateBeneficiary(b.id,f);setEdit(false);eng.say(`Record ${b.id} updated`);};
+  return <div className="card">
+    <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+      <div className="card-t">{b.name} <span className="code">{b.id}</span></div>
+      <span className={"badge "+(b.verified?'b-green':'b-amber')}><span className="dot"/>{b.verified?t.x('Verified','Byemejwe'):t.x('Unverified','Bitemejwe')}</span></div>
+    <div style={{marginTop:8}}><Tags list={b.disabilities} t={t}/></div>
+    <div className="rec">
+      <div className="rl">{t.x('Location','Aho aba')}</div>
+      {edit?<input className="input" style={{marginTop:4}} value={f.village} onChange={e=>setF({...f,village:e.target.value})}/>
+           :<span className="rr">{b.sector} · {b.cell} · {b.village}</span>}
+      <div className="rl">{t.x('Daily challenges','Ingorane za buri munsi')}</div><span className="rr">{b.challenges}</span>
+      <div className="rl">{t.x('Support needs','Ubufasha akeneye')}</div>
+      {edit?<textarea className="input" style={{marginTop:4}} value={f.needs} onChange={e=>setF({...f,needs:e.target.value})}/>
+           :<span className="rr">{b.needs}</span>}
+      <div className="rl">{t.x('Guardian','Umurezi')}</div><span className="rr">{b.guardian||'—'}</span>
+      <div className="rl">{t.x('Account','Konti')}</div>
+      <span className="rr">{b.email?`✉️ ${b.email}`:t.x('No email — guardian/officer-mediated access','Nta imeyili — binyuze ku murezi/umukozi')}</span>
+    </div>
+    <div className="row-actions">
+      {edit?<><button className="btn green sm" onClick={save}>{t('save')}</button>
+             <button className="btn ghost sm" onClick={()=>{setF({needs:b.needs,village:b.village});setEdit(false)}}>{t('cancel')}</button></>
+        :<><button className="btn ghost sm" onClick={()=>setEdit(true)}>{t.x('Update record','Vugurura')}</button>
+           <button className="btn sm" onClick={()=>eng.createRequest(b.id,b.needs,'officer')}>{t.x('Create support request','Saba ubufasha')}</button></>}
+    </div>
+  </div>;
+}
+function RegisterForm({eng,t,goto}){
+  const blank={name:'',nid:'',sector:SECTORS[0],cell:'',village:'',guardian:'',email:'',challenges:'',needs:'',consent:false,
+    disabilities:[{type:'seeing',level:'some'}]};
+  const [f,setF]=useState(blank);
+  const [err,setErr]=useState('');
+  const [dups,setDups]=useState(null);   // null = not checked; [] = none; [..] = candidates
+  const [done,setDone]=useState(null);
+  const up=k=>e=>setF({...f,[k]:e.target.value});
+  const setDis=(i,k,v)=>setF({...f,disabilities:f.disabilities.map((d,j)=>j===i?{...d,[k]:v}:d)});
+  const addDis=()=>setF({...f,disabilities:[...f.disabilities,{type:'hearing',level:'some'}]});
+  const delDis=i=>setF({...f,disabilities:f.disabilities.filter((_,j)=>j!==i)});
+
+  // force = the officer explicitly chose to register despite a duplicate
+  function attempt(force){
+    setErr('');
+    if(!f.name.trim()||!f.sector){setErr(t.x('Full name and sector are required.','Izina n\'umurenge birakenewe.'));return;}
+    if(!f.needs.trim()){setErr(t.x('Support needs are required — a disability category alone cannot say what a person needs.','Ubufasha akeneye burakenewe.'));return;}
+    if(!f.disabilities.length){setErr(t.x('Record at least one impairment.','Andika nibura ubumuga bumwe.'));return;}
+    if(!f.consent){setErr(t.x('Informed consent is required before storing sensitive disability data (Law No. 058/2021).','Uruhushya rurakenewe (Itegeko 058/2021).'));return;}
+    if(!force){
+      const found=eng.findDuplicates(f);
+      if(found.length){setDups(found);return;}
+    }
+    const id=eng.registerBeneficiary(f);
+    setDone({id,email:f.email});
+    eng.say(`${id} registered${f.email?' — credentials emailed':''}`);
+  }
+  if(done)return <div className="success">
+    <div className="big">📧</div>
+    <div style={{fontWeight:800,fontSize:18,marginTop:6}}>{t.x('Beneficiary registered','Uwunguka yanditswe')}</div>
+    <div className="code" style={{fontSize:22,margin:'8px 0'}}>{done.id}</div>
+    <div style={{color:'var(--muted)',lineHeight:1.5}}>{done.email
+      ? <>{t.x('Account created; login credentials emailed to','Konti yakozwe; imyirondoro yoherejwe kuri')} <b>{done.email}</b>.</>
+      : <>{t.x('No email address recorded — guardian- and officer-mediated access apply. This is a legitimate path, not a failure.','Nta imeyili — bizanyura ku murezi cyangwa umukozi.')}</>}</div>
+    <div className="row-actions" style={{justifyContent:'center',marginTop:16}}>
+      <button className="btn" onClick={goto}>{t.x('Open registry','Fungura registry')}</button>
+      <button className="btn ghost" onClick={()=>{setF(blank);setDups(null);setDone(null);setErr('')}}>{t.x('Register another','Andika undi')}</button>
+    </div></div>;
+  return <div className="card" style={{marginTop:22,maxWidth:780}}>
+    <div className="card-t">{t.x('Register a beneficiary','Andika uwunguka')}</div>
+    <small className="hint">{t.x('Record the impairment, the daily challenges and the support needs separately — a category alone cannot express what a person actually requires.','Andika ubumuga, ingorane n\'ubufasha bukenewe ukwabyo.')}</small>
+    <div className="form-grid">
+      <div><label>{t.x('Full name','Amazina')} *</label><input className="input" value={f.name} onChange={up('name')}/></div>
+      <div><label>{t.x('National ID','Indangamuntu')}</label><input className="input" value={f.nid} onChange={up('nid')}/></div>
+      <div><label>{t.x('Sector','Umurenge')} *</label><select className="input" value={f.sector} onChange={up('sector')}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div>
+      <div><label>{t.x('Cell','Akagari')}</label><input className="input" value={f.cell} onChange={up('cell')}/></div>
+      <div><label>{t.x('Village','Umudugudu')}</label><input className="input" value={f.village} onChange={up('village')}/></div>
+      <div><label>{t.x('Guardian (if any)','Umurezi')}</label><input className="input" value={f.guardian} onChange={up('guardian')}/></div>
+      <div className="full"><label>{t.x('Email for login credentials (optional)','Imeyili yo kohererezwaho konti')}</label>
+        <input className="input" value={f.email} onChange={up('email')} placeholder={t.x('Leave empty if none — mediated access applies','Siga ubusa niba nta yo ihari')}/></div>
+    </div>
+    <div style={{marginTop:18}}>
+      <label style={{fontWeight:700,fontSize:14}}>{t.x('Impairment (Washington Group Short Set)','Ubumuga (Washington Group)')} *</label>
+      {f.disabilities.map((d,i)=><div className="wg" key={i}>
+        <select className="input" value={d.type} onChange={e=>setDis(i,'type',e.target.value)} aria-label="Impairment type">{Object.keys(DISABILITY).map(k=><option key={k} value={k}>{t.d(k)}</option>)}</select>
+        <select className="input" value={d.level} onChange={e=>setDis(i,'level',e.target.value)} aria-label="Difficulty level">{Object.keys(DIFFICULTY).map(k=><option key={k} value={k}>{t.diff(k)}</option>)}</select>
+        {f.disabilities.length>1
+          ?<button className="btn red sm" onClick={()=>delDis(i)} aria-label="Remove impairment">✕</button>
+          :<span/>}
+      </div>)}
+      <button className="btn ghost sm" style={{marginTop:8}} onClick={addDis}>+ {t.x('Add impairment','Ongeraho')}</button>
+    </div>
+    <div className="form-grid">
+      <div className="full"><label>{t.x('Daily challenges','Ingorane za buri munsi')}</label><textarea className="input" value={f.challenges} onChange={up('challenges')} placeholder={t.x('What does this person struggle with day to day?','Ni izihe ngorane afite?')}/></div>
+      <div className="full"><label>{t.x('Support needs','Ubufasha akeneye')} *</label><textarea className="input" value={f.needs} onChange={up('needs')} placeholder={t.x('What would actually help?','Ni ubuhe bufasha bwamufasha?')}/></div>
+    </div>
+    <label className="consent"><input type="checkbox" checked={f.consent} onChange={e=>{setF({...f,consent:e.target.checked});setErr('')}}/>
+      <span>{t.x('The beneficiary (or guardian) has given informed consent to store this sensitive data, under Law No. 058/2021 on the protection of personal data and privacy.','Uwunguka cyangwa umurezi yatanze uruhushya rwo kubika aya makuru y\'ibanga (Itegeko 058/2021).')}</span></label>
+    {err&&<div className="warn" role="alert">{err}</div>}
+    {dups&&dups.length>0&&<div className="warn" role="alert">
+      <b>{t.x('Possible duplicate detected','Hari uwo asa nawe')}:</b>
+      <div style={{marginTop:6}}>{dups.map(d=><div key={d.id}>• {d.name} <span className="code">{d.id}</span> — {d.sector}, {d.village}</div>)}</div>
+      <div style={{marginTop:8}}>{t.x('The registry is meant to hold one record per person. Register anyway only if this is genuinely a different person.','Registry igomba kugira inyandiko imwe kuri buri muntu.')}</div>
+      <div className="row-actions">
+        <button className="btn amber sm" onClick={()=>attempt(true)}>{t.x('Register anyway','Komeza wandike')}</button>
+        <button className="btn ghost sm" onClick={()=>setDups(null)}>{t.x('Go back and edit','Subira usubiremo')}</button>
+      </div></div>}
+    <button className="btn block" style={{marginTop:16}} onClick={()=>attempt(false)}>{t.x('Register & email credentials','Andika wohereze konti')}</button>
+  </div>;
+}
+function OfficerReq({r,eng,t}){
+  const b=eng.benOf(r.benId);
+  const [reason,setReason]=useState('');const [err,setErr]=useState('');
+  const decide=d=>{if(!reason.trim()){setErr(t.x('A decision reason is required and is shown to the beneficiary.','Impamvu irakenewe kandi uwunguka arayibona.'));return;}eng.decide(r.id,d,reason.trim());setReason('');setErr('');};
+  return <div className="card">
+    <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+      <div className="card-t">{r.need} <span className="code">{r.id}</span></div><ReqBadge status={r.status} t={t}/></div>
+    <div className="meta">
+      <span><b>{t.x('Beneficiary','Uwunguka')}:</b> {b?.name} ({r.benId})</span>
+      <span><b>{t.x('Origin','Aho byavuye')}:</b> {r.origin==='provider'?`${t.x('Provider offer','Provider')} — ${r.provider}`:t.x('Officer-initiated','Umukozi')}</span></div>
+    {r.reason&&<div className="rec"><div className="rl">{t.x('Recorded decision reason','Impamvu yanditse')}</div>{r.reason}</div>}
+    {r.status==='REQUESTED'&&<>
+      <div style={{marginTop:12}}><label style={{fontSize:13.5,fontWeight:600}}>{t.x('Decision reason (required)','Impamvu (itegetswe)')}</label>
+        <textarea className="input" style={{minHeight:62,marginTop:6}} value={reason} onChange={e=>{setReason(e.target.value);setErr('')}} placeholder={t.x('Why is this approved, prioritised or declined?','Kuki byemejwe cyangwa byanzwe?')}/>
+        {err&&<div className="err" role="alert">{err}</div>}</div>
+      <div className="row-actions">
+        <button className="btn red sm" onClick={()=>decide('urgent')}>{t.x('Approve · Urgent','Emeza · Byihutirwa')}</button>
+        <button className="btn sm" onClick={()=>decide('standard')}>{t.x('Approve · Standard','Emeza · Bisanzwe')}</button>
+        <button className="btn ghost sm" onClick={()=>decide('ineligible')}>{t.x('Not eligible','Ntibyemewe')}</button>
+      </div></>}
+    {['APPROVED_URGENT','APPROVED_STANDARD'].includes(r.status)&&
+      <div className="row-actions"><button className="btn sm" onClick={()=>eng.distribute(r.id)}>{t.x('Start distribution','Tangira gutanga')}</button></div>}
+    {r.status==='DISTRIBUTING'&&
+      <div className="row-actions"><button className="btn green sm" onClick={()=>eng.complete(r.id)}>{t.x('Confirm delivery','Emeza ko byatanzwe')}</button></div>}
+    <Timeline items={r.timeline}/>
+  </div>;
+}
+const FIELDS={village:['Village','Umudugudu'],cell:['Cell','Akagari'],sector:['Sector','Umurenge'],
+  guardian:['Guardian','Umurezi'],challenges:['Daily challenges','Ingorane'],needs:['Support needs','Ubufasha akeneye']};
+function Corrections({eng,t}){
+  const rows=eng.db.corrections;
+  if(!rows.length)return <Empty title={t.x('No correction requests','Nta byo gukosora')}/>;
+  return <div className="grid g2">{rows.map(c=><CorrectionCard key={c.id} c={c} eng={eng} t={t}/>)}</div>;
+}
+function CorrectionCard({c,eng,t}){
+  const b=eng.benOf(c.benId);
+  const [open,setOpen]=useState(false);
+  const [field,setField]=useState(c.field||'village');
+  const [value,setValue]=useState(c.value||'');
+  const apply=()=>{
+    if(!value.trim())return;
+    eng.applyCorrection(c.id,field,value.trim());
+    setOpen(false);
+  };
+  return <div className="card">
+    <div style={{display:'flex',justifyContent:'space-between',gap:10}}>
+      <div className="card-t">{b?.name} <span className="code">{c.benId}</span></div>
+      <span className={"badge "+(c.status==='pending'?'b-amber':c.status==='applied'?'b-green':'b-gray')}><span className="dot"/>{c.status}</span></div>
+    <div className="rec"><div className="rl">{t.x('Requested correction','Icyo asaba')}</div>{c.text}</div>
+    {c.status==='pending'&&<>
+      <small className="hint">🔐 {t.x('The beneficiary may see and challenge the record, but only an officer may change it — and both the request and the change are logged.','Uwunguka areba akanaburana, ariko umukozi ni we uhindura; byose birandikwa.')}</small>
+      {open?<div style={{marginTop:12,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:12}}>
+        <div className="rl">{t.x('Which field, and what should it become?','Ni ikihe gice, kigire iki?')}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1.4fr',gap:8,marginTop:8}}>
+          <select className="input" value={field} onChange={e=>{setField(e.target.value);setValue(b[e.target.value]||'')}} aria-label="Field to correct">
+            {Object.entries(FIELDS).map(([k,v])=><option key={k} value={k}>{t.x(v[0],v[1])}</option>)}</select>
+          <input className="input" value={value} onChange={e=>setValue(e.target.value)} aria-label="Corrected value"/>
+        </div>
+        <div className="meta" style={{marginTop:8}}><span><b>{t.x('Current value','Uko iri ubu')}:</b> {b?.[field]||'—'}</span></div>
+        <div className="row-actions">
+          <button className="btn green sm" disabled={!value.trim()} onClick={apply}>{t.x('Confirm & update record','Emeza uhindure')}</button>
+          <button className="btn ghost sm" onClick={()=>setOpen(false)}>{t('cancel')}</button>
+        </div>
+      </div>
+      :<div className="row-actions">
+        <button className="btn green sm" onClick={()=>{setField(c.field||'village');setValue(c.value||b?.village||'');setOpen(true)}}>{t.x('Apply to record','Kosora')}</button>
+        <button className="btn red sm" onClick={()=>eng.resolveCorrection(c.id,false)}>{t.x('Decline','Anga')}</button>
+      </div>}
+    </>}
+  </div>;
+}
+function PublishForm({eng,t,org}){
+  const [f,setF]=useState({kind:'scholarship',title:'',org:org||'',detail:''});
+  const [err,setErr]=useState('');
+  const pub=()=>{if(!f.title.trim()){setErr(t.x('A title is required.','Umutwe urakenewe.'));return;}eng.publishOpportunity(f);setF({...f,title:'',detail:''});setErr('');};
+  return <div className="card" style={{marginTop:22,maxWidth:660}}>
+    <div className="card-t">{t.x('Publish an opportunity or announcement','Tangaza amahirwe')}</div>
+    <small className="hint">{t.x('Opportunities intended for persons with disabilities routinely fail to reach them. Publishing here notifies every registered beneficiary directly.','Amahirwe menshi ntagera ku bafite ubumuga. Aha bagezwaho bose.')}</small>
+    <div className="form-grid">
+      <div><label>{t.x('Type','Ubwoko')}</label><select className="input" value={f.kind} onChange={e=>setF({...f,kind:e.target.value})}>
+        <option value="scholarship">{t.x('Scholarship','Buruse')}</option><option value="job">{t.x('Job','Akazi')}</option>
+        <option value="training">{t.x('Training','Amahugurwa')}</option><option value="announcement">{t.x('Announcement','Itangazo')}</option></select></div>
+      <div><label>{t.x('Organisation','Umuryango')}</label><input className="input" value={f.org} onChange={e=>setF({...f,org:e.target.value})}/></div>
+      <div className="full"><label>{t.x('Title','Umutwe')} *</label><input className="input" value={f.title} onChange={e=>{setF({...f,title:e.target.value});setErr('')}}/></div>
+      <div className="full"><label>{t.x('Details','Ibisobanuro')}</label><textarea className="input" value={f.detail} onChange={e=>setF({...f,detail:e.target.value})}/></div>
+    </div>
+    {err&&<div className="err" role="alert">{err}</div>}
+    <button className="btn" style={{marginTop:14}} onClick={pub}>{t.x('Publish & notify beneficiaries','Tangaza')}</button>
+  </div>;
+}
+
+/* ═══════════ BENEFICIARY (read-only) ═══════════ */
+function Beneficiary({eng,t}){
+  const [tab,setTab]=useState('profile');
+  const me=eng.benOf(ME);
+  const myReq=eng.db.requests.filter(r=>r.benId===ME);
+  const myNotifs=eng.db.notifs.filter(n=>n.to===ME);
+  const tabs=[
+    {k:'profile',label:t.x('My profile','Umwirondoro')},
+    {k:'support',label:t.x('Support status','Ubufasha'),count:myReq.length},
+    {k:'opp',label:t.x('Opportunities','Amahirwe'),count:eng.db.opportunities.length},
+    {k:'notifs',label:t.x('Messages','Ubutumwa'),count:myNotifs.length},
+  ];
+  return <div className="page">
+    <h1 className="page-h">{t.x('Welcome','Murakaza neza')}, {me.name.split(' ')[1]} 👋</h1>
+    <div className="page-sub">{t.x('This is your verified record. It is read-only — if something is wrong you can request a correction, and your officer will review it.','Uyu ni umwirondoro wawe wemejwe. Ni uwo kureba gusa — niba hari ikitari cyo, saba ko gikosorwa.')}</div>
+    <Tabs tabs={tabs} active={tab} set={setTab}/>
+    {tab==='profile'&&<MyProfile me={me} eng={eng} t={t}/>}
+    {tab==='support'&&(myReq.length?<div className="grid g2">{myReq.map(r=><div className="card" key={r.id}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10}}><div className="card-t">{r.need}</div><ReqBadge status={r.status} t={t}/></div>
+      <div className="meta"><span className="code">{r.id}</span>{r.provider&&<span><b>{t.x('Provider','Utanga')}:</b> {r.provider}</span>}</div>
+      {r.reason&&<div className="rec"><div className="rl">{t.x('Reason recorded by the officer','Impamvu y\'umukozi')}</div>{r.reason}</div>}
+      <Timeline items={r.timeline}/>
+    </div>)}</div>:<Empty title={t.x('No support requests yet','Nta byifuzo')}/>)}
+    {tab==='opp'&&<Opportunities list={eng.db.opportunities} t={t}/>}
+    {tab==='notifs'&&<div className="card" style={{marginTop:22}}>{myNotifs.length
+      ?myNotifs.map((n,i)=><div key={i} className="notif"><div className="notif-ico">{n.ico}</div>
+        <div><div style={{fontSize:14.5,fontWeight:600}}>{n.t}</div><small className="hint">{n.w}</small></div></div>)
+      :<div style={{color:'var(--muted)',padding:8}}>{t.x('No messages.','Nta butumwa.')}</div>}</div>}
+  </div>;
+}
+function MyProfile({me,eng,t}){
+  const [txt,setTxt]=useState('');const [open,setOpen]=useState(false);
+  const mine=eng.db.corrections.filter(c=>c.benId===ME);
+  return <>
+    <div className="card" style={{marginTop:22,maxWidth:660}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10}}>
+        <div className="card-t">{me.name} <span className="code">{me.id}</span></div>
+        <span className={"badge "+(me.verified?'b-green':'b-amber')}><span className="dot"/>{me.verified?t.x('Verified','Byemejwe'):t.x('Unverified','Bitemejwe')}</span></div>
+      <div style={{marginTop:8}}><Tags list={me.disabilities} t={t}/></div>
+      <div className="rec">
+        <div className="rl">{t.x('Location','Aho aba')}</div><span className="rr">{me.sector} · {me.cell} · {me.village}</span>
+        <div className="rl">{t.x('Daily challenges','Ingorane')}</div><span className="rr">{me.challenges}</span>
+        <div className="rl">{t.x('Support needs','Ubufasha akeneye')}</div><span className="rr">{me.needs}</span></div>
+      <small className="hint">🔒 {t.x('Read-only: the authority to change an official record stays with your officer, so the record used to allocate support keeps its integrity.','Ni uwo kureba gusa: umukozi ni we uhindura inyandiko yemewe.')}</small>
+      <div className="row-actions"><button className="btn ghost sm" onClick={()=>setOpen(!open)}>✏️ {t.x('Request a correction','Saba gukosora')}</button></div>
+      {open&&<div style={{marginTop:12}}>
+        <label htmlFor="cx" style={{fontSize:13.5,fontWeight:600}}>{t.x('What is incorrect in your record?','Ni iki kitari cyo?')}</label>
+        <textarea id="cx" className="input" style={{marginTop:6}} value={txt} onChange={e=>setTxt(e.target.value)}/>
+        <button className="btn sm" style={{marginTop:8}} disabled={!txt.trim()} onClick={()=>{eng.requestCorrection(ME,txt.trim());setTxt('');setOpen(false)}}>{t('submit')}</button>
+      </div>}
+    </div>
+    {mine.length>0&&<div className="card" style={{marginTop:14,maxWidth:660}}>
+      <div className="card-t">{t.x('My correction requests','Ibyo nasabye gukosorwa')}</div>
+      {mine.map(c=><div key={c.id} style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',padding:'10px 0',borderTop:'1px solid var(--border)'}}>
+        <span style={{fontSize:14}}>{c.text}</span>
+        <span className={"badge "+(c.status==='pending'?'b-amber':c.status==='applied'?'b-green':'b-gray')}><span className="dot"/>{c.status}</span></div>)}
+    </div>}
+  </>;
+}
+function Opportunities({list,t}){
+  const label={scholarship:t.x('Scholarship','Buruse'),job:t.x('Job','Akazi'),training:t.x('Training','Amahugurwa'),announcement:t.x('Announcement','Itangazo')};
+  return <div className="grid g2">{list.map(o=><div key={o.id} className={"card opp "+o.kind}>
+    <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center'}}>
+      <span className="badge b-sky">{label[o.kind]||o.kind}</span><small className="hint">{o.w}</small></div>
+    <div className="card-t" style={{marginTop:8}}>{o.title}</div>
+    <div className="meta"><span><b>{t.x('Published by','Batanze')}:</b> {o.org}</span></div>
+    <div style={{marginTop:8,fontSize:14,lineHeight:1.5,color:'var(--muted)'}}>{o.detail}</div>
+  </div>)}</div>;
+}
+
+/* ═══════════ PROVIDER (least privilege) ═══════════ */
+function Provider({eng,t}){
+  const [tab,setTab]=useState('search');
+  const mine=eng.db.requests.filter(r=>r.provider==='Inclusive Hands NGO');
+  const tabs=[
+    {k:'search',label:t.x('Find by recorded need','Shakisha')},
+    {k:'offers',label:t.x('My offers','Ibyo natanze'),count:mine.length},
+    {k:'publish',label:t.x('Publish opportunity','Tangaza')},
+  ];
+  return <div className="page">
+    <h1 className="page-h">{t.x('Support Provider','Utanga Ubufasha')} — Inclusive Hands NGO</h1>
+    <div className="page-sub">{t.x('Search the registry by recorded need and offer targeted support. Matching rests on recorded need rather than on acquaintance — which is how support reaches those who need it most, not those best known.','Shakisha ukurikije ubukene bwanditse utange ubufasha.')}</div>
+    <Tabs tabs={tabs} active={tab} set={setTab}/>
+    {tab==='search'&&<ProviderSearch eng={eng} t={t}/>}
+    {tab==='offers'&&(mine.length?<div className="grid g2">{mine.map(r=>{const b=eng.benOf(r.benId);return <div className="card" key={r.id}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10}}><div className="card-t">{r.need}</div><ReqBadge status={r.status} t={t}/></div>
+      <div className="meta"><span className="code">{r.id}</span><span><b>{t.x('Beneficiary','Uwunguka')}:</b> {b?.id} · {b?.sector}</span></div>
+      {r.reason&&<div className="rec"><div className="rl">{t.x('Officer decision','Icyemezo')}</div>{r.reason}</div>}
+      <Timeline items={r.timeline}/>
+    </div>})}</div>:<Empty title={t.x('No offers yet','Nta byo waratanga')} sub={t.x('Search by need and submit an offer.','Shakisha utange igitekerezo.')}/>)}
+    {tab==='publish'&&<PublishForm eng={eng} t={t} org="Inclusive Hands NGO"/>}
+  </div>;
+}
+function ProviderSearch({eng,t}){
+  const [need,setNeed]=useState('all');const [sector,setSector]=useState('all');
+  const rows=eng.db.beneficiaries.filter(b=>b.verified
+    &&(need==='all'||b.disabilities.some(d=>d.type===need))
+    &&(sector==='all'||b.sector===sector));
+  const offered=id=>eng.db.requests.some(r=>r.benId===id&&r.provider==='Inclusive Hands NGO'&&r.status!=='INELIGIBLE');
+  return <>
+    <div className="tabs" style={{marginTop:20}}>
+      <select className="input" style={{maxWidth:250}} value={need} onChange={e=>setNeed(e.target.value)} aria-label="Filter by impairment">
+        <option value="all">{t.x('All impairments','Ubumuga bwose')}</option>{Object.keys(DISABILITY).map(k=><option key={k} value={k}>{t.d(k)}</option>)}</select>
+      <select className="input" style={{maxWidth:200}} value={sector} onChange={e=>setSector(e.target.value)} aria-label="Filter by sector">
+        <option value="all">{t.x('All sectors','Imirenge yose')}</option>{SECTORS.map(s=><option key={s}>{s}</option>)}</select>
+    </div>
+    {rows.length?<div className="grid g2">{rows.map(b=><div className="card" key={b.id}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center'}}>
+        <div className="card-t"><span className="code">{b.id}</span></div><span className="badge b-gray"><span className="dot"/>{b.sector}</span></div>
+      <div style={{marginTop:8}}><Tags list={b.disabilities} t={t}/></div>
+      <div className="rec"><div className="rl">{t.x('Recorded support need','Ubufasha bukenewe')}</div>{b.needs}</div>
+      <small className="hint">🔒 {t.x('Name, national ID and personal history are withheld — you can identify a candidate for assistance without reading their full record.','Izina n\'indangamuntu birahishwe.')}</small>
+      <div className="row-actions">
+        {offered(b.id)
+          ?<span className="badge b-green"><span className="dot"/>{t.x('Offer already submitted','Wamaze gutanga')}</span>
+          :<button className="btn sm" onClick={()=>eng.createRequest(b.id,b.needs,'provider','Inclusive Hands NGO')}>{t.x('Submit support offer','Tanga igitekerezo')}</button>}
+      </div>
+    </div>)}</div>:<Empty title={t.x('No matching beneficiaries','Nta wabonetse')} sub={t.x('Try a different impairment or sector filter.','Hindura ishakisha.')}/>}
+  </>;
+}
+
+/* ═══════════ ADMIN ═══════════ */
+function Admin({eng,t}){
+  const [tab,setTab]=useState('reports');
+  const tabs=[
+    {k:'reports',label:t.x('Reports & analytics','Raporo')},
+    {k:'users',label:t.x('Users & roles','Abakoresha'),count:eng.db.users.length},
+    {k:'publish',label:t.x('National announcement','Itangazo')},
+    {k:'audit',label:t.x('Audit log','Audit log'),count:eng.db.audit.length},
+  ];
+  return <div className="page">
+    <h1 className="page-h">{t.x('Administrator','Umuyobozi')} — NCPD / Kamonyi</h1>
+    <div className="page-sub">{t.x('Monitor coverage and distribution, manage users and role permissions, publish national announcements, and review the audit log.','Kurikirana coverage, gucunga abakoresha, gutangaza, no gusuzuma audit log.')}</div>
+    <Tabs tabs={tabs} active={tab} set={setTab}/>
+    {tab==='reports'&&<Reports eng={eng} t={t}/>}
+    {tab==='users'&&<div className="card" style={{marginTop:22}}>
+      <div className="card-t">{t.x('Users & role permissions','Abakoresha & uburenganzira')}</div>
+      <table><thead><tr><th>{t.x('Name','Izina')}</th><th>{t.x('Email','Imeyili')}</th><th>{t.x('Role','Uruhare')}</th><th>{t.x('Scope','Aho akorera')}</th></tr></thead>
+        <tbody>{eng.db.users.map((u,i)=><tr key={i}>
+          <td style={{fontWeight:600}}>{u.name}</td><td style={{fontSize:13}}>{u.email}</td>
+          <td><span className="badge" style={{background:ROLES[u.role].bg,color:ROLES[u.role].color}}>{t(u.role)}</span></td>
+          <td style={{color:'var(--muted)',fontSize:13}}>{u.scope}</td></tr>)}</tbody></table>
+      <small className="hint" style={{display:'block',marginTop:12}}>🔐 {t.x('Role-based access control: officers create and update records; beneficiaries read only their own; providers search and offer but cannot edit; administrators configure the system without silently altering beneficiary data.','RBAC: umukozi ahindura; uwunguka areba uwe gusa; provider ashakisha atari uguhindura; admin agena sisitemu.')}</small>
+    </div>}
+    {tab==='publish'&&<PublishForm eng={eng} t={t} org="NCPD"/>}
+    {tab==='audit'&&<div className="card" style={{marginTop:22}}>
+      <small className="hint">{t.x('Every action on a record is logged: an inaccurate registry causes real harm to a real person, so changes must be attributable.','Buri gikorwa kirandikwa.')}</small>
+      {eng.db.audit.map((x,i)=><div key={i} className="notif"><div className="notif-ico">📝</div>
+        <div><div style={{fontSize:14.5,fontWeight:600}}>{x.a}</div><small className="hint">{x.who} · {x.w}</small></div></div>)}
+    </div>}
+  </div>;
+}
+function Reports({eng,t}){
+  const B=eng.db.beneficiaries,R=eng.db.requests;
+  const EST=2400; // Table 3: estimated PwD population in the study area
+  const coverage=+(B.length/EST*100).toFixed(1);
+  const completeness=B.length?Math.round(B.filter(b=>b.sector&&b.challenges&&b.needs).length/B.length*100):0;
+  const decided=R.filter(r=>r.status!=='REQUESTED');
+  const traceability=decided.length?Math.round(decided.filter(r=>r.reason&&r.reason.trim()).length/decided.length*100):0;
+  const seen={};let dup=0;B.forEach(b=>{const k=b.nid||b.name+'|'+b.sector;if(seen[k])dup++;else seen[k]=1});
+  const dupPct=B.length?+(dup/B.length*100).toFixed(1):0;
+  const delivered=R.filter(r=>r.status==='COMPLETED').length;
+  const byType={};B.forEach(b=>b.disabilities.forEach(d=>byType[d.type]=(byType[d.type]||0)+1));
+  const bySector={};B.forEach(b=>bySector[b.sector]=(bySector[b.sector]||0)+1);
+  return <>
+    <div className="stats">
+      <div className="stat"><div className="stat-l">{t.x('Registered','Abanditswe')}</div><div className="stat-v">{B.length}</div></div>
+      <div className="stat"><div className="stat-l">{t.x('Coverage of est. population','Coverage')}</div><div className="stat-v">{coverage}%</div></div>
+      <div className="stat"><div className="stat-l">{t.x('Record completeness','Byuzuye')}</div><div className="stat-v">{completeness}%</div></div>
+      <div className="stat"><div className="stat-l">{t.x('Duplication rate','Duplication')}</div><div className="stat-v">{dupPct}%</div></div>
+      <div className="stat"><div className="stat-l">{t.x('Support delivered','Bwatanzwe')}</div><div className="stat-v">{delivered}</div></div>
+      <div className="stat"><div className="stat-l">{t.x('Decisions with a reason','Ifite impamvu')}</div><div className="stat-v">{traceability}%</div></div>
+    </div>
+    <div className="grid g2">
+      <div className="card"><div className="card-t">{t.x('By impairment type','Ku bwoko bw\'ubumuga')}</div>
+        <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:10}}>{Object.keys(DISABILITY).map(k=>{
+          const n=byType[k]||0;const pct=B.length?Math.round(n/B.length*100):0;
+          return <div key={k}><div style={{display:'flex',justifyContent:'space-between',fontSize:13.5,marginBottom:4}}>
+            <span style={{color:'var(--muted)'}}>{t.d(k)}</span><b>{n}</b></div><div className="bar"><i style={{width:pct+'%'}}/></div></div>})}</div></div>
+      <div className="card"><div className="card-t">{t.x('Support requests by status','Ibyifuzo mu byiciro')}</div>
+        <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:10}}>{Object.keys(REQ_BADGE).map(k=>{
+          const n=R.filter(r=>r.status===k).length;const pct=R.length?Math.round(n/R.length*100):0;
+          return <div key={k}><div style={{display:'flex',justifyContent:'space-between',fontSize:13.5,marginBottom:4}}>
+            <span style={{color:'var(--muted)'}}>{t(k)}</span><b>{n}</b></div><div className="bar"><i style={{width:pct+'%'}}/></div></div>})}</div></div>
+      <div className="card"><div className="card-t">{t.x('Coverage by sector','Ku murenge')}</div>
+        <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:10}}>{SECTORS.map(s=>{
+          const n=bySector[s]||0;const pct=B.length?Math.round(n/B.length*100):0;
+          return <div key={s}><div style={{display:'flex',justifyContent:'space-between',fontSize:13.5,marginBottom:4}}>
+            <span style={{color:'var(--muted)'}}>{s}</span><b>{n}</b></div><div className="bar"><i style={{width:pct+'%'}}/></div></div>})}</div></div>
+      <div className="card"><div className="card-t">{t.x('What these numbers answer','Icyo imibare isobanura')}</div>
+        <div style={{marginTop:10,fontSize:13.5,lineHeight:1.6,color:'var(--muted)'}}>
+          <b style={{color:'var(--text)'}}>{t.x('Coverage','Coverage')}</b> — {t.x('whether the registry finds the people it exists to serve.','niba registry ibona abo igenewe.')}<br/>
+          <b style={{color:'var(--text)'}}>{t.x('Duplication','Duplication')}</b> — {t.x('whether it is a single authoritative record.','niba ari inyandiko imwe yemewe.')}<br/>
+          <b style={{color:'var(--text)'}}>{t.x('Traceability','Traceability')}</b> — {t.x('whether support can be shown to be fair rather than merely asserted.','niba ubufasha bugaragara ko ari ubutabera.')}
+        </div></div>
+    </div>
+  </>;
+}
+
+/* ═══════════ ROOT ═══════════ */
+function App(){
+  const [role,setRole]=useState(null);
+  const [a,setA]=useState({lang:'en',zoom:1,hc:false});
+  const eng=useEngine();
+  React.useEffect(()=>{document.body.classList.toggle('hc',a.hc)},[a.hc]);
+
+  const i=a.lang==='rw'?1:0;
+  const t=(k)=>T[k]?T[k][i]:k;
+  t.x=(en,rw)=>a.lang==='rw'?rw:en;
+  t.d=(k)=>DISABILITY[k]?DISABILITY[k][i]:k;
+  t.diff=(k)=>DIFFICULTY[k]?DIFFICULTY[k][i]:k;
+
+  if(!role)return <Login onLogin={setRole} a={a} setA={setA} t={t}/>;
+  return <Shell role={role} onLogout={()=>setRole(null)} a={a} setA={setA} t={t}>
+    {role==='officer'&&<Officer eng={eng} t={t}/>}
+    {role==='beneficiary'&&<Beneficiary eng={eng} t={t}/>}
+    {role==='provider'&&<Provider eng={eng} t={t}/>}
+    {role==='admin'&&<Admin eng={eng} t={t}/>}
+    {eng.toast&&<div className="toast" role="status">✓ {eng.toast}</div>}
+  </Shell>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
