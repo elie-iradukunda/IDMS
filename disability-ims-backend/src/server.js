@@ -9,6 +9,7 @@ import 'dotenv/config';
 import { sequelize } from './models/index.js';
 import { router } from './routes.js';
 import { AppError } from './services/registry.service.js';
+import { verifyMailer } from './services/notify.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -35,8 +36,20 @@ app.use(helmet({
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// Brute-force protection on the login endpoint
-app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false }));
+// Brute-force protection on the login endpoint. Only FAILED attempts are
+// counted: a rural district office shares one internet connection, so
+// counting successful sign-ins would lock out a whole office of officers
+// once twenty of them had legitimately logged in — turning a security
+// control into a denial of service against the people it protects.
+// Failures are what a brute-force attempt produces, and those are capped.
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 25,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many failed sign-in attempts. Please wait 15 minutes and try again.' },
+}));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', router);
@@ -80,5 +93,9 @@ const port = process.env.PORT || 4000;
 (async () => {
   await sequelize.authenticate();
   if (process.env.DB_SYNC === 'true') await sequelize.sync({ alter: true }); // dev only; use migrations in production
+  // Check the mail transport at startup, so a wrong app password is found
+  // on deploy rather than on the first beneficiary registration. A failure
+  // is reported, not fatal: the system must still run without email.
+  await verifyMailer();
   app.listen(port, () => console.log(`Disability Support IMS API on :${port}`));
 })().catch((e) => { console.error('Startup failed:', e); process.exit(1); });

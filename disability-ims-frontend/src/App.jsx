@@ -5,6 +5,7 @@ import { Loading } from './components/ui.jsx';
 import DashboardLayout from './components/DashboardLayout.jsx';
 
 import LoginPage from './pages/LoginPage.jsx';
+import AccountPage from './pages/AccountPage.jsx';
 
 import OfficerLayout from './pages/officer/OfficerLayout.jsx';
 import RegistryPage from './pages/officer/RegistryPage.jsx';
@@ -26,7 +27,9 @@ import ProviderPublishPage from './pages/provider/PublishPage.jsx';
 
 import AdminLayout from './pages/admin/AdminLayout.jsx';
 import ReportsPage from './pages/admin/ReportsPage.jsx';
+import AdminRegistryPage from './pages/admin/AdminRegistryPage.jsx';
 import UsersPage from './pages/admin/UsersPage.jsx';
+import ProvidersPage from './pages/admin/ProvidersPage.jsx';
 import AuditPage from './pages/admin/AuditPage.jsx';
 import AnnouncementPage from './pages/admin/AnnouncementPage.jsx';
 
@@ -51,6 +54,7 @@ export default function App() {
           <Route path="requests" element={<SupportRequestsPage />} />
           <Route path="corrections" element={<CorrectionsPage />} />
           <Route path="publish" element={<OfficerPublishPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 
@@ -62,6 +66,7 @@ export default function App() {
           <Route path="support" element={<MySupportPage />} />
           <Route path="opportunities" element={<OpportunitiesPage />} />
           <Route path="messages" element={<MessagesPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 
@@ -72,6 +77,7 @@ export default function App() {
           <Route path="search" element={<ProviderSearchPage />} />
           <Route path="offers" element={<ProviderOffersPage />} />
           <Route path="publish" element={<ProviderPublishPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 
@@ -80,9 +86,12 @@ export default function App() {
         <Route index element={<Navigate to="reports" replace />} />
         <Route element={<AdminLayout />}>
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="registry" element={<AdminRegistryPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="providers" element={<ProvidersPage />} />
           <Route path="announcement" element={<AnnouncementPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
 

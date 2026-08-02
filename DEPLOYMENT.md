@@ -42,7 +42,17 @@ absolute path.
 | `PORT` | | defaults to `4000` (most hosts inject this) |
 | `CLIENT_DIST` | | absolute path to `dist/`; blank = auto-detect sibling |
 | `ESTIMATED_PWD_POPULATION` | | coverage denominator (default `2400`) |
-| `SMTP_HOST`/`SMTP_*` | | set for real credential/opportunity emails; blank = log to console |
+| `MAIL_PROVIDER` | | `gmail`, `smtp`, or blank = log every email to the console |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | | for `MAIL_PROVIDER=gmail`; needs a Google **App Password** (2-Step Verification on), not the account password |
+| `SMTP_HOST`/`SMTP_*` | | for `MAIL_PROVIDER=smtp` |
+| `APP_URL` | | public web-app URL the buttons in outgoing email link to |
+| `MAIL_FROM` | | overrides the From header; defaults to the Gmail/SMTP identity |
+| `MAIL_REDIRECT_TO` | | **dev only** — divert all mail to one address. Must be **empty** in production or no beneficiary receives their own notifications |
+
+The mail transport is verified at startup, so a wrong app password shows up in the
+deploy log rather than on the first beneficiary registration. Delivery is best-effort
+by design: a mail failure is logged and never rolls back a registration or blocks an
+officer's decision.
 
 ---
 
@@ -72,7 +82,10 @@ site on Netlify/Vercel).
 - [ ] Serve over **HTTPS** (terminate TLS at the platform/reverse proxy).
 - [ ] Strong `JWT_SECRET`; real `DATABASE_URL`; `NODE_ENV=production`.
 - [ ] Seeded once (or migrated); demo passwords changed for any real accounts.
-- [ ] SMTP configured if credential/opportunity emails should actually send.
+- [ ] Mail provider configured (`MAIL_PROVIDER` + credentials) and **`MAIL_REDIRECT_TO`
+      cleared**, so decisions, deliveries and opportunities reach the real recipients.
+- [ ] `APP_URL` pointing at the deployed web app, not `localhost`.
+- [ ] `npm run test:api` green against the deployed API.
 - [ ] Database backups enabled (the registry consolidates records that were
       previously only on paper — protect it).
 

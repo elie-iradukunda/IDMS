@@ -69,7 +69,10 @@ export const SupportRequest = sequelize.define('SupportRequest', {
   code:          { type: DataTypes.STRING, unique: true },      // R-501
   beneficiaryId: { type: DataTypes.INTEGER, allowNull: false },
   need:          { type: DataTypes.STRING, allowNull: false },
-  origin:        { type: DataTypes.ENUM('OFFICER', 'PROVIDER'), allowNull: false },
+  // Who initiated it. BENEFICIARY matters because a person must be able to
+  // ask for what they need; OFFICER matters because a request-driven system
+  // otherwise serves only those already able to make a request.
+  origin:        { type: DataTypes.ENUM('OFFICER', 'PROVIDER', 'BENEFICIARY'), allowNull: false },
   providerId:    { type: DataTypes.INTEGER },
   status:        { type: DataTypes.ENUM('REQUESTED', 'APPROVED_URGENT', 'APPROVED_STANDARD', 'DISTRIBUTING', 'COMPLETED', 'INELIGIBLE', 'CANCELLED'), defaultValue: 'REQUESTED' },
   decisionReason:{ type: DataTypes.TEXT },     // required on any officer decision
@@ -146,6 +149,8 @@ Correction.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId', as: 'beneficiar
 
 Beneficiary.hasMany(Notification, { foreignKey: 'beneficiaryId' });
 Notification.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId' });
+
+Opportunity.belongsTo(User, { foreignKey: 'postedById', as: 'author' });
 
 User.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId' });
 User.belongsTo(Provider, { foreignKey: 'providerId' });
