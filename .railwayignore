@@ -1,0 +1,18 @@
+# Files that must not be uploaded into the deployed container.
+# `railway up` sends the working directory, which otherwise includes the
+# dissertation, its figures and the test suites — none of which the running
+# service needs, and the .docx alone is several megabytes.
+
+*.docx
+waste2value_figures/
+tests/
+e2e_test.cjs
+disability-ims.html
+
+# Build output is produced on Railway by `npm run build`; uploading a local
+# dist/ risks deploying a stale bundle that does not match the source.
+disability-ims-frontend/dist/
+
+# Never upload local secrets — Railway holds its own variables.
+.env
+**/.env
