@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Megaphone, Pencil, Trash2 } from 'lucide-react';
+import { Megaphone, Pencil, Trash2, Users2, CalendarClock } from 'lucide-react';
 import { post, patch, del } from '../lib/api.js';
 import { useUI } from '../context/UIContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -9,8 +9,10 @@ import { OPP_ICON } from '../lib/constants.js';
 import { timeAgo } from '../lib/format.js';
 import { Card, Badge, Empty, Loading } from './ui.jsx';
 import { FormModal, ConfirmModal } from './Modal.jsx';
+import ApplicantsDialog from './ApplicantsDialog.jsx';
 
 const KINDS = ['scholarship', 'job', 'training', 'announcement'];
+const today = () => new Date().toISOString().slice(0, 10);
 
 // Publish + manage opportunities. Jobs, scholarships and training intended
 // for persons with disabilities routinely fail to reach them — not because
@@ -52,7 +54,7 @@ export default function PublishOpportunityForm({ org = '', heading, blurb }) {
         {list.loading ? <Loading /> : list.data?.length ? (
           <div style={{ marginTop: 6 }}>
             {list.data.map((o) => (
-              <div key={o.id} style={{ padding: '14px 0', borderTop: '1px solid var(--border)' }}>
+              <div key={o.id} className="opp-row" style={{ padding: '14px 0', borderTop: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 15 }}>
@@ -63,7 +65,31 @@ export default function PublishOpportunityForm({ org = '', heading, blurb }) {
                       <span>{o.org || '—'}</span>
                       <span>{timeAgo(o.createdAt, a.lang)}</span>
                       {o.author && <span>{t.x('by', 'na')} {o.author.fullName}</span>}
+                      {o.deadline && (
+                        <span>
+                          <CalendarClock className="h-[13px] w-[13px]" aria-hidden="true" style={{ verticalAlign: -2 }} />{' '}
+                          {t.x('closes', 'bifunga')} {o.deadline}
+                        </span>
+                      )}
+                      {o.slots ? <span>{t.x(`${o.slots} place(s)`, `imyanya ${o.slots}`)}</span> : null}
                     </div>
+                    {/* Applications are the outcome that matters — publishing
+                        is only the means. Surfacing the count here is what
+                        stops a posting quietly collecting responses nobody
+                        opens. */}
+                    {o.acceptsApplications && (
+                      <div className="meta">
+                        <Badge tone={o.pendingApplications ? 'amber' : 'gray'}>
+                          {t.x(
+                            `${o.applications} application(s) · ${o.pendingApplications} awaiting a decision`,
+                            `Ibyifuzo ${o.applications} · ${o.pendingApplications} bitegereje icyemezo`,
+                          )}
+                        </Badge>
+                        {!o.open && (
+                          <Badge tone="gray">{t.x('Closed', 'Byarafunzwe')}</Badge>
+                        )}
+                      </div>
+                    )}
                     {o.detail && (
                       <div style={{ marginTop: 8, fontSize: 13.5, lineHeight: 1.55, color: 'var(--muted)' }}>
                         {o.detail}
@@ -71,7 +97,14 @@ export default function PublishOpportunityForm({ org = '', heading, blurb }) {
                     )}
                   </div>
                   {canManage(o) && (
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {o.acceptsApplications && (
+                        <button className="btn sm" onClick={() => setDialog({ kind: 'applicants', o })}>
+                          <Users2 className="h-[14px] w-[14px]" aria-hidden="true" />
+                          {t.x('Applicants', 'Abasabye')}
+                          {o.pendingApplications > 0 ? ` (${o.pendingApplications})` : ''}
+                        </button>
+                      )}
                       <button className="btn ghost sm" onClick={() => setDialog({ kind: 'edit', o })}
                         aria-label={t.x(`Edit ${o.title}`, `Hindura ${o.title}`)}>
                         <Pencil className="h-[14px] w-[14px]" aria-hidden="true" />
@@ -92,6 +125,9 @@ export default function PublishOpportunityForm({ org = '', heading, blurb }) {
       {dialog?.kind === 'create' && <OppDialog defaultOrg={org} onClose={close} onDone={done} />}
       {dialog?.kind === 'edit' && <OppDialog o={dialog.o} onClose={close} onDone={done} />}
       {dialog?.kind === 'delete' && <DeleteDialog o={dialog.o} onClose={close} onDone={done} />}
+      {dialog?.kind === 'applicants' && (
+        <ApplicantsDialog o={dialog.o} onClose={close} onDone={() => list.reload()} />
+      )}
     </>
   );
 }
@@ -103,7 +139,11 @@ function OppDialog({ o, defaultOrg = '', onClose, onDone }) {
   const [f, setF] = useState({
     kind: o?.kind || 'scholarship', title: o?.title || '',
     org: o?.org ?? defaultOrg, detail: o?.detail || '',
+    deadline: o?.deadline || '', slots: o?.slots ?? '',
   });
+  // An announcement is information to read; the other three are things a
+  // person must be able to act on, so only those take applications.
+  const isAnnouncement = f.kind === 'announcement';
   const m = useMutation();
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -119,13 +159,21 @@ function OppDialog({ o, defaultOrg = '', onClose, onDone }) {
       subtitle={editing
         ? t.x('Editing does not resend the notification — beneficiaries keep the message they already received.',
           'Guhindura ntibisubiramo kohereza ubutumwa.')
-        : t.x('Every active registered beneficiary is notified in the app, and emailed where an address is on file.',
-          'Abunganirwa bose bamenyeshwa muri sisitemu no kuri imeyili aho ihari.')}
+        : isAnnouncement
+          ? t.x('An announcement is information to read. Every active registered beneficiary is notified in the app, and emailed where an address is on file.',
+            'Itangazo ni amakuru yo gusoma. Abunganirwa bose bamenyeshwa.')
+          : t.x('Every active registered beneficiary is notified in the app and by email, and can apply to it directly — publishing without a way to respond only moves the exclusion one step later.',
+            "Abunganirwa bose bamenyeshwa kandi bashobora kubisaba — gutangaza nta buryo bwo gusubiza ni ukwimura ikibazo gusa.")}
       submitLabel={editing ? t.x('Save changes', 'Bika') : t.x('Publish & notify', 'Tangaza')}
       onSubmit={() => {
         if (!f.title.trim()) return m.setError(t.x('A title is required.', 'Umutwe urakenewe.'));
+        const body = {
+          ...f,
+          deadline: isAnnouncement ? null : (f.deadline || null),
+          slots: isAnnouncement || f.slots === '' ? null : Number(f.slots),
+        };
         return m.run(
-          () => (editing ? patch(`/opportunities/${o.id}`, f) : post('/opportunities', f)),
+          () => (editing ? patch(`/opportunities/${o.id}`, body) : post('/opportunities', body)),
           {
             success: editing
               ? t.x('Opportunity updated', 'Byahinduwe')
@@ -150,6 +198,29 @@ function OppDialog({ o, defaultOrg = '', onClose, onDone }) {
           <label className="field-label" htmlFor="o-title">{t.x('Title', 'Umutwe')} *</label>
           <input ref={first} id="o-title" className="app-input" value={f.title} onChange={set('title')} />
         </div>
+
+        {!isAnnouncement && (
+          <>
+            <div>
+              <label className="field-label" htmlFor="o-deadline">{t.x('Closing date', 'Itariki ntarengwa')}</label>
+              <input id="o-deadline" type="date" className="app-input" min={today()}
+                value={f.deadline} onChange={set('deadline')} />
+              <small className="hint">
+                {t.x('An opportunity with no closing date never resolves — nobody can tell whether it is still open, and the people least able to chase it assume it has passed.',
+                  'Amahirwe adafite itariki ntarengwa ntasozwa — nta wamenya niba akiri afunguye.')}
+              </small>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="o-slots">{t.x('Places available', 'Imyanya ihari')}</label>
+              <input id="o-slots" type="number" min="1" className="app-input" value={f.slots} onChange={set('slots')}
+                placeholder={t.x('Leave empty if not fixed', 'Siga ubusa niba itazwi')} />
+              <small className="hint">
+                {t.x('Stating it is what makes a rejection legible: "20 places, 60 applicants" rather than "they chose others".',
+                  'Kuvuga umubare bituma kunyagwa bisobanuka.')}
+              </small>
+            </div>
+          </>
+        )}
         <div className="full">
           <label className="field-label" htmlFor="o-detail">{t.x('Details', 'Ibisobanuro')}</label>
           <textarea id="o-detail" className="app-input" style={{ minHeight: 96 }} value={f.detail} onChange={set('detail')} />

@@ -5,9 +5,12 @@ import { Loading } from './components/ui.jsx';
 import DashboardLayout from './components/DashboardLayout.jsx';
 
 import LoginPage from './pages/LoginPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import NotFoundPage from './pages/NotFoundPage.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 
 import OfficerLayout from './pages/officer/OfficerLayout.jsx';
+import OfficerOverviewPage from './pages/officer/OverviewPage.jsx';
 import RegistryPage from './pages/officer/RegistryPage.jsx';
 import RegisterBeneficiaryPage from './pages/officer/RegisterBeneficiaryPage.jsx';
 import SupportRequestsPage from './pages/officer/SupportRequestsPage.jsx';
@@ -44,11 +47,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
       {/* Local Officer */}
       <Route path="/officer" element={<DashboardLayout role="OFFICER" />}>
-        <Route index element={<Navigate to="registry" replace />} />
+        <Route index element={<Navigate to="overview" replace />} />
         <Route element={<OfficerLayout />}>
+          <Route path="overview" element={<OfficerOverviewPage />} />
           <Route path="registry" element={<RegistryPage />} />
           <Route path="register" element={<RegisterBeneficiaryPage />} />
           <Route path="requests" element={<SupportRequestsPage />} />
@@ -96,7 +102,9 @@ export default function App() {
       </Route>
 
       <Route path="/" element={<HomeRedirect />} />
-      <Route path="*" element={<HomeRedirect />} />
+      {/* An unknown address is said to be unknown rather than silently
+          swallowed into the dashboard, which reads as the link having worked. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

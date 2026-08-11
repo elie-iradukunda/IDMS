@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
 import { qs } from '../../lib/api.js';
 import { useUI } from '../../context/UIContext.jsx';
-import { useFetch } from '../../lib/useFetch.js';
+import { usePagedFetch } from '../../lib/useFetch.js';
+import { useDebounced } from '../../lib/useDebounced.js';
+import { registryColumns } from '../../lib/registryColumns.js';
+import { downloadCsv, stamped } from '../../lib/csv.js';
 import { SECTORS } from '../../lib/constants.js';
-import { Card, Badge, ImpairmentTags, Empty, Loading, ErrorState } from '../../components/ui.jsx';
+import { Card, Badge, ImpairmentTags, Empty, Loading, ErrorState, Pager } from '../../components/ui.jsx';
+
+const PAGE_SIZE = 25;
 
 // Registry oversight. The administrator's mandate is to monitor coverage
 // and distribution, which cannot be done without seeing the records — but
@@ -15,7 +21,19 @@ export default function AdminRegistryPage() {
   const [q, setQ] = useState('');
   const [sector, setSector] = useState('all');
   const [status, setStatus] = useState('all');
-  const { data, loading, error, reload } = useFetch(`/admin/registry${qs({ q, sector, status })}`);
+  const [page, setPage] = useState(0);
+  const term = useDebounced(q, 350);
+
+  const { data, total, loading, error, reload } =
+    usePagedFetch(`/admin/registry${qs({ q: term, sector, status, limit: PAGE_SIZE, offset: page * PAGE_SIZE })}`);
+
+  useEffect(() => { setPage(0); }, [term, sector, status]);
+
+  // The national ID is deliberately excluded: it is not shown on this
+  // read-only oversight screen, and an export must not become the side door
+  // that hands out what the screen withholds.
+  const exportCsv = () =>
+    downloadCsv(stamped('registry-oversight'), registryColumns({ t }), data || []);
 
   return (
     <>
@@ -37,6 +55,10 @@ export default function AdminRegistryPage() {
           <option value="ARCHIVED">{t('ARCHIVED')}</option>
           <option value="DECEASED">{t('DECEASED')}</option>
         </select>
+        <button className="btn ghost sm" onClick={exportCsv} disabled={!data?.length}>
+          <Download className="h-[15px] w-[15px]" aria-hidden="true" />
+          {t.x('Export page (CSV)', 'Kuramo (CSV)')}
+        </button>
       </div>
 
       <Card style={{ marginTop: 16 }}>
@@ -52,7 +74,10 @@ export default function AdminRegistryPage() {
           : data?.length ? (
             <div style={{ overflowX: 'auto' }}>
               <table>
-                <caption className="sr-only">{t.x('All beneficiary records', 'Inyandiko zose')}</caption>
+                <caption className="sr-only">
+                  {t.x(`All beneficiary records — ${total} match the current filters`,
+                    `Inyandiko zose — ${total} zihuye n'amashakiro`)}
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">{t.x('Code', 'Code')}</th>
@@ -89,8 +114,15 @@ export default function AdminRegistryPage() {
                   ))}
                 </tbody>
               </table>
+              <Pager page={page} pageSize={PAGE_SIZE} total={total} count={data.length} onPage={setPage} />
             </div>
-          ) : <Empty title={t.x('No matching records', 'Nta cyabonetse')} />}
+          ) : (
+            <Empty
+              title={t.x('No matching records', 'Nta cyabonetse')}
+              sub={t.x('Try a different search term or clear the filters.',
+                'Gerageza andi magambo cyangwa ukureho amashakiro.')}
+            />
+          )}
       </Card>
     </>
   );

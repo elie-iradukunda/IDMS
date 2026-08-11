@@ -10,6 +10,14 @@ export const ROLES = {
 export const DEMO_ACCOUNTS = ['OFFICER', 'BENEFICIARY', 'PROVIDER', 'ADMIN'];
 export const DEMO_PASSWORD = 'password123';
 
+// One-click sign-in as an administrator is exactly what a demonstration needs
+// and exactly what a live district registry must not offer: the cards publish
+// a working credential for every role, including the one that can read the
+// whole registry. They appear in development, and in a deployed build only if
+// the operator opts in explicitly with VITE_SHOW_DEMO_ACCOUNTS=true.
+export const SHOW_DEMO_ACCOUNTS =
+  import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true';
+
 // Support-request status → badge class.
 export const REQ_BADGE = {
   REQUESTED: 'b-amber', APPROVED_URGENT: 'b-red', APPROVED_STANDARD: 'b-sky',
@@ -17,7 +25,14 @@ export const REQ_BADGE = {
 };
 export const REQ_STATUSES = Object.keys(REQ_BADGE);
 
-export const SECTORS = ['Runda', 'Gacurabwenge', 'Musambira', 'Nyarubaka'];
+// All twelve sectors of Kamonyi District. The list has to be complete: a
+// sector missing from this array is a sector whose residents an officer
+// cannot register at all, and the coverage report would then read as though
+// nobody there has a disability.
+export const SECTORS = [
+  'Gacurabwenge', 'Karama', 'Kayenzi', 'Kayumbu', 'Mugina', 'Musambira',
+  'Ngamba', 'Nyamiyaga', 'Nyarubaka', 'Rugarika', 'Rukoma', 'Runda',
+];
 
 export const OPP_ICON = { scholarship: '🎓', job: '💼', training: '📚', announcement: '📣' };
 

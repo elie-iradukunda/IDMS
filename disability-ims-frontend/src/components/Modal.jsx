@@ -26,6 +26,14 @@ const FOCUSABLE = [
   'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+// Dialogs stack: reviewing applicants opens a list, and deciding on one opens
+// a second dialog on top of it. Every open Modal listens for Escape on
+// `document`, and stopPropagation does not stop sibling listeners on the same
+// node — so without a stack, one Escape closed the child *and* the parent,
+// throwing the user out of a task they were halfway through. Only the topmost
+// dialog handles the key.
+const openModals = [];
+
 export default function Modal({
   open,
   onClose,
@@ -69,10 +77,25 @@ export default function Modal({
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
+  // Register in the stack while open, so the topmost dialog owns Escape and
+  // Tab. `token` identifies this instance across renders.
+  const token = useRef({});
+  useEffect(() => {
+    if (!open) return undefined;
+    const id = token.current;
+    openModals.push(id);
+    return () => {
+      const i = openModals.indexOf(id);
+      if (i !== -1) openModals.splice(i, 1);
+    };
+  }, [open]);
+
   // Escape to close; Tab cycles within the panel.
   useEffect(() => {
     if (!open) return undefined;
+    const isTopmost = () => openModals[openModals.length - 1] === token.current;
     const onKeyDown = (e) => {
+      if (!isTopmost()) return;   // a dialog underneath must not react
       if (e.key === 'Escape') { e.stopPropagation(); onClose?.(); return; }
       if (e.key !== 'Tab') return;
       const items = [...(panelRef.current?.querySelectorAll(FOCUSABLE) || [])]
@@ -174,6 +197,16 @@ export function FormModal({
   busy = false, error, children, initialFocus, extraFooter,
 }) {
   const { t } = useUI();
+
+  // A FormModal with no onSubmit renders a perfectly normal-looking submit
+  // button that silently does nothing — the user fills the form, presses it,
+  // and the dialog just sits there with no error to explain itself. That is
+  // exactly how the staff-account dialog shipped broken. Fail loudly in
+  // development so the next one is caught at the keyboard, not in production.
+  if (import.meta.env.DEV && open && typeof onSubmit !== 'function') {
+    console.error(`FormModal "${title}" has no onSubmit handler — its submit button will do nothing.`);
+  }
+
   return (
     <Modal
       open={open}

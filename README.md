@@ -82,30 +82,83 @@ confirmed, correction applied/declined, correction filed (to the officer), provi
 offer filed (to the officer), staff account created, and account deactivated.
 
 ## What each role can do
-- **Officer** — register beneficiaries (consent-gated, duplicate-checked), maintain the
-  official record and its impairment list, create/edit/decide/distribute/complete support
-  requests with a recorded reason, resolve corrections, publish opportunities.
+- **Officer** — an **overview** of the work that is waiting (requests needing a decision,
+  corrections to review, opportunity applications, oldest-first), register beneficiaries
+  (consent-gated, with a live duplicate check as they type), maintain the official record
+  and its impairment list, create/edit/decide/distribute/complete support requests with a
+  recorded reason, resolve corrections, publish opportunities, **review applicants** and
+  **apply on behalf of a beneficiary who cannot use the form**. The sidebar badges the
+  queues that have work waiting, so nothing ages behind an unopened tab.
 - **Beneficiary** — read their own verified record, **request support themselves** and
-  withdraw it, track status, browse opportunities, manage messages, request a correction
-  (officer-mediated) and see the outcome of every request they have made.
+  withdraw it, track status, **apply to published opportunities** and withdraw an
+  application, manage messages (with an unread indicator in the header on every
+  screen), request a correction (officer-mediated) and see the outcome — with the
+  recorded reason — of every request and application they have made.
 - **Provider** — search the registry by *recorded need* only (no name / ID / history),
-  submit and withdraw targeted offers, track them, publish opportunities.
-- **Admin** — coverage & distribution reports (Table 3.3 measures), read-only registry
-  oversight, users & roles, **provider organisations**, national announcements, audit log.
+  submit and withdraw targeted offers, track them, publish opportunities and decide on
+  applications **to their own postings only** — a provider must not acquire a roster of
+  beneficiaries through the back door.
+- **Admin** — coverage & distribution reports (Table 3.3 measures, exportable to CSV or
+  print), read-only registry oversight, users & roles, **provider organisations**,
+  national announcements, and a searchable, paged audit log.
 
-Every role also has an **My account** page for changing their password and their
-interface language (stored on the account, not just in the browser).
+Every role also has a **My account** page for changing their password and their
+interface language (stored on the account, not just in the browser), and anyone who
+loses their password can recover it themselves from the sign-in screen — a single-use
+code is emailed and is valid for one hour.
+
+## Opportunities are something you can act on
+Publishing scholarships, jobs and training to every registered beneficiary fixes the
+*distribution* failure — the information travels. It does not, on its own, fix the
+exclusion: a person who reads "apply by 30 August" and has no way to say **me** is no
+better served than before. So an opportunity carries a **closing date**, a **number of
+places**, and an **Apply** action, and it works the same way a support request does:
+
+- **Two origins.** A beneficiary applies for themselves, **or an officer applies on
+  their behalf**. A self-service-only process quietly selects for literacy, for owning a
+  device and for having an email address — the three things a rural disability registry
+  cannot assume. The application records which it was, and the beneficiary is notified
+  either way: being helped must never mean being kept in the dark.
+- **Every decision carries a recorded reason** — accepted, shortlisted or not selected —
+  shown to the applicant in the app and by email. A rejection nobody has to justify is
+  indistinguishable, to the person refused, from an arbitrary one.
+- **Withdrawal and re-application** are allowed while a decision is outstanding, because
+  changing your mind is not a mistake.
+- **Uptake is measured.** The report shows how many beneficiaries have ever applied to
+  anything, and what share of applications an officer had to submit for somebody. A high
+  mediated share is not a failure — it is the size of the population a self-service-only
+  system would have silently excluded.
+
+An *announcement* is information to read, so it has nothing to apply to and says so.
+
+## Scale & reporting
+The registry is measured against a district population of ~2,400, so the registry,
+oversight and audit lists **page in the database** rather than rendering every row: the
+page comes back in the body and the full match count in an `X-Total-Count` header, so a
+search says how many people it actually found, not how many fitted on the screen.
+Search boxes are debounced. The registry, oversight registry, audit log and the district
+report all **export to CSV** (UTF-8 with a BOM, formula-injection neutralised), because
+the alternative to an export is retyping the numbers into the monthly return.
 
 ## Tests
 With the backend running and the database seeded:
 
 ```bash
 npm run seed          # reset to known demo data
-npm run test:api      # 141 checks — RBAC, CRUD, validation, workflow, reports
-npm run test:ui       # 60 checks — drives the real SPA in Microsoft Edge
+npm run test:api      # 206 checks — RBAC, CRUD, validation, workflow, reports,
+                      #              pagination, applications, password recovery
+npm run test:ui       # 97 checks — drives the real SPA in Microsoft Edge:
+                      #             every screen, dialog, a11y and keyboard path
+npm run test:nav      # 78 checks — every route for every role, the guards that
+                      #             keep each role out of the others, and full
+                      #             create → table → update → delete round trips
+                      #             driven entirely through the browser
 npm run test:mail     # triggers all 10 notification paths against the live mailer
-npm test              # seed + api + ui
+npm test              # seed + api + ui + nav (381 checks)
 ```
+
+Both suites honour `IDS_TEST_URL` (default `http://127.0.0.1:4000`), so they can be
+pointed at a staging deploy or at a second local instance when :4000 is busy.
 
 `test:ui` needs a browser driver, deliberately kept out of `package.json` so it is
 never installed on the production host: `npm i -D playwright-core` once, and

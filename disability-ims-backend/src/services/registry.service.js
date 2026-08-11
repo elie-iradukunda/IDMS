@@ -137,22 +137,44 @@ export async function registerBeneficiary(officer, data) {
 // ── Reads ────────────────────────────────────────────────────
 const withImpairments = [{ model: Impairment, as: 'impairments' }];
 
-export const listRegistry = ({ q, sector, status } = {}) =>
-  Beneficiary.findAll({
-    where: {
-      ...(sector && sector !== 'all' && { sector }),
-      ...(status && status !== 'all' && { status }),
-      ...(q && {
-        [Op.or]: [
-          { fullName: { [Op.like]: `%${q}%` } },
-          { code: { [Op.like]: `%${q}%` } },
-          { supportNeeds: { [Op.like]: `%${q}%` } },
-          { village: { [Op.like]: `%${q}%` } },
-        ],
-      }),
-    },
-    include: withImpairments, order: [['createdAt', 'DESC']],
+const registryWhere = ({ q, sector, status } = {}) => ({
+  ...(sector && sector !== 'all' && { sector }),
+  ...(status && status !== 'all' && { status }),
+  ...(q && {
+    [Op.or]: [
+      { fullName: { [Op.like]: `%${q}%` } },
+      { code: { [Op.like]: `%${q}%` } },
+      { supportNeeds: { [Op.like]: `%${q}%` } },
+      { village: { [Op.like]: `%${q}%` } },
+      { nationalId: { [Op.like]: `%${q}%` } },
+    ],
+  }),
+});
+
+// The registry is measured against a district population of ~2,400, so a
+// screen that renders every row is a screen that gets slower every week it is
+// used. Filtering and paging both happen in the database; the caller is told
+// the full match count separately so the officer still knows how many people
+// their search actually found, not merely how many fitted on the page.
+export async function listRegistry({ q, sector, status, limit, offset } = {}) {
+  const where = registryWhere({ q, sector, status });
+  const paged = limit !== undefined && limit !== null && limit !== '';
+  const rows = await Beneficiary.findAll({
+    where,
+    include: withImpairments,
+    order: [['createdAt', 'DESC']],
+    ...(paged && { limit: clampLimit(limit), offset: Math.max(0, Number(offset) || 0) }),
   });
+  const total = paged ? await Beneficiary.count({ where }) : rows.length;
+  return { rows, total };
+}
+
+// A caller-supplied page size is still a database instruction: bound it so a
+// crafted ?limit=1000000 cannot be used to pull the whole registry at once.
+export const clampLimit = (v, fallback = 25, max = 200) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), max) : fallback;
+};
 
 export async function getBeneficiary(id) {
   const b = await Beneficiary.findByPk(id, { include: withImpairments });

@@ -3,8 +3,14 @@
 const { chromium } = require('playwright-core');
 const path = require('path');
 
-const BASE = 'http://127.0.0.1:4000';
-const SHOTS = process.argv[2] || '.';
+// Override with IDS_TEST_URL to drive a staging deploy, or a second local
+// instance when port 4000 is already in use.
+const BASE = (process.env.IDS_TEST_URL || 'http://127.0.0.1:4000').replace(/\/+$/, '');
+// Default into tests/screenshots (gitignored) rather than the working
+// directory — `npm run test:ui` passes no path, and dumping fifty PNGs into
+// the repo root is how they end up in a commit.
+const SHOTS = process.argv[2] || path.join(__dirname, 'screenshots');
+require('fs').mkdirSync(SHOTS, { recursive: true });
 let pass = 0, fail = 0;
 const log = [];
 const check = (name, ok, detail = '') => {
@@ -31,9 +37,14 @@ const section = (s) => log.push(`\n=== ${s} ===`);
   const login = async (email, password = 'password123') => {
     // Sign out first: the login route redirects an already-authenticated
     // user straight to their own dashboard.
-    await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-    await page.evaluate(() => localStorage.clear());
+    //
+    // Wait for the app to finish booting BEFORE clearing storage. Clearing it
+    // mid-boot pulls the token out from under the session-restore call that is
+    // already in flight, which answers 401 — a race this harness was creating
+    // for itself and then reporting as a browser error.
     await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
     await page.waitForSelector('#em');
     await page.fill('#em', email);
     await page.fill('#pw', password);
@@ -48,20 +59,62 @@ const section = (s) => log.push(`\n=== ${s} ===`);
   };
 
   const visibleText = () => page.locator('main').innerText();
+  // Login, recovery and not-found render outside the dashboard shell, so they
+  // have no <main> to read from.
+  const bodyText = () => page.locator('body').innerText();
 
   // ═══ LOGIN ═══
   section('LOGIN');
   await goto('/login');
   check('Login page renders', (await page.locator('#em').count()) === 1);
+  check('Login offers a password-recovery route',
+    (await page.locator('a[href="/forgot-password"]').count()) === 1);
   await shot('01-login');
+
+  // ═══ PASSWORD RECOVERY ═══
+  // Anyone who loses the temporary password they were emailed must be able to
+  // recover it themselves; the alternative is telephoning an administrator to
+  // reach their own record.
+  section('PASSWORD RECOVERY');
+  await goto('/forgot-password');
+  check('Recovery page renders', (await page.locator('#fp-email').count()) === 1);
+  await page.fill('#fp-email', 'nobody@nowhere.rw');
+  await page.click('form button[type="submit"]');
+  await page.waitForTimeout(900);
+  check('Recovery moves to the code step', (await page.locator('#fp-token').count()) === 1);
+  check('Recovery does not reveal whether the address is registered',
+    /if that address has an account/i.test(await bodyText()));
+  await shot('01b-forgot-password');
+  await page.fill('#fp-token', 'obviously-not-a-real-code');
+  await page.fill('#fp-pw', 'short');
+  await page.fill('#fp-cnf', 'short');
+  await page.click('form button[type="submit"]');
+  await page.waitForTimeout(500);
+  check('Recovery enforces the 8-character minimum in the form',
+    /at least 8 characters/i.test(await bodyText()));
+
+  // ═══ NOT FOUND ═══
+  await goto('/no/such/page');
+  check('An unknown address says so rather than silently redirecting',
+    /does not exist/i.test(await bodyText()));
 
   // ═══ OFFICER ═══
   section('OFFICER DASHBOARD');
   await login('officer@kamonyi.gov.rw');
-  check('Officer lands on the registry', page.url().includes('/officer'));
+  check('Officer lands in their workspace', page.url().includes('/officer'));
+
+  // Overview: the work that is waiting, before the list of who is recorded.
+  await goto('/officer/overview');
+  let txt = await visibleText();
+  check('Officer overview renders the waiting workload', /awaiting your decision/i.test(txt));
+  check('Overview surfaces corrections to review', /corrections to review/i.test(txt));
+  check('Overview lists the longest-waiting requests', /waiting longest/i.test(txt));
+  await shot('01c-officer-overview');
+  check('Sidebar badges the queues that have work waiting',
+    (await page.locator('.sidebar .nav-count').count()) > 0);
 
   await goto('/officer/registry');
-  let txt = await visibleText();
+  txt = await visibleText();
   check('Registry lists seeded beneficiaries', txt.includes('Mukamana Alice') && txt.includes('B-1001'));
   check('Registry shows record count', /record\(s\)/.test(txt), txt.slice(0, 80));
   check('Registry shows impairment chips', txt.includes('Seeing') || txt.includes('Walking'));
@@ -155,11 +208,67 @@ const section = (s) => log.push(`\n=== ${s} ===`);
   await goto('/officer/publish');
   txt = await visibleText();
   check('Published opportunities list renders', txt.includes('Bursary') || txt.includes('opportunit'));
+  check('Each posting shows how many applied and how many await a decision',
+    /application\(s\)/i.test(txt) && /awaiting a decision/i.test(txt));
   await page.locator('button', { hasText: 'Publish an opportunity' }).first().click();
   await page.waitForSelector('[role="dialog"]');
   check('Publish modal opens', (await page.locator('#o-title').count()) === 1);
+  check('Publishing captures a closing date and the number of places',
+    (await page.locator('#o-deadline').count()) === 1 && (await page.locator('#o-slots').count()) === 1);
+  // An announcement is information to read, so it has nothing to apply to.
+  await page.selectOption('#o-kind', 'announcement');
+  await page.waitForTimeout(250);
+  check('An announcement offers no closing date or places',
+    (await page.locator('#o-deadline').count()) === 0);
   await shot('11-officer-publish-modal');
   await page.locator('.modal-x').click();
+  await page.waitForTimeout(300);
+
+  // ── Reviewing applicants ──
+  await page.locator('button', { hasText: 'Applicants' }).first().click();
+  await page.waitForSelector('[role="dialog"]');
+  // The applicant list is fetched after the dialog mounts, so read it only
+  // once a row has actually rendered — otherwise this races the spinner.
+  await page.waitForSelector('[role="dialog"] .code', { timeout: 10000 });
+  let dlg = await page.locator('[role="dialog"]').innerText();
+  check('Applicants dialog lists who applied', /applications/i.test(dlg) && /B-1\d{3}/.test(dlg));
+  check('Applicants dialog distinguishes an officer-submitted application',
+    /on their behalf|submitted by an officer/i.test(dlg));
+  check('Officer can apply on behalf of a beneficiary from here',
+    (await page.locator('button', { hasText: 'Apply on behalf of a beneficiary' }).count()) === 1);
+  await shot('11b-officer-applicants');
+
+  // A decision must carry a reason, exactly as a support decision does.
+  await page.locator('[role="dialog"] button', { hasText: 'Not selected' }).first().click();
+  await page.waitForSelector('#ad-reason');
+  await page.locator('.modal-foot button[type="submit"]').last().click();
+  await page.waitForTimeout(500);
+  check('An application decision without a reason is blocked in the dialog',
+    /reason is required/i.test(await page.locator('.err, [role="alert"]').first().innerText().catch(() => '')));
+  await shot('11c-officer-decide-application');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  // Escape must close the dialog on top, not the whole stack — otherwise one
+  // keypress throws the user out of a task they were halfway through.
+  check('Escape closes only the topmost dialog, leaving the one beneath open',
+    (await page.locator('[role="dialog"]').count()) === 1
+      && (await page.locator('#ad-reason').count()) === 0);
+
+  // Applying on behalf: the path for someone who cannot use the form at all.
+  await page.locator('button', { hasText: 'Apply on behalf of a beneficiary' }).first().click();
+  await page.waitForSelector('#af-q');
+  dlg = await page.locator('[role="dialog"]').last().innerText();
+  check('Apply-on-behalf explains why the path exists',
+    /no email, no device|cannot use the form/i.test(dlg));
+  await page.fill('#af-q', 'Habimana');
+  await page.waitForTimeout(900);
+  check('Apply-on-behalf searches the registry for the person',
+    (await page.locator('[role="dialog"] button', { hasText: 'Select' }).count()) > 0);
+  await shot('11d-officer-apply-on-behalf');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
 
   // Account
   await goto('/officer/account');
@@ -205,7 +314,55 @@ const section = (s) => log.push(`\n=== ${s} ===`);
   await goto('/beneficiary/opportunities');
   txt = await visibleText();
   check('Opportunities render for the beneficiary', txt.includes('Bursary') || txt.includes('assessment'));
+  check('Opportunities can be filtered by type', (await page.locator('#opp-q').count()) === 1);
+  await page.fill('#opp-q', 'zzzzznomatch');
+  await page.waitForTimeout(300);
+  check('Opportunity search narrows the list', /nothing matches/i.test(await visibleText()));
+  await page.fill('#opp-q', '');
+  await page.waitForTimeout(300);
+
+  // ── Applying: the half that used to be missing ──
+  // Publishing told a beneficiary a scholarship existed and then left them
+  // with nowhere to go. The Apply action is what turns a notice into
+  // something a person can act on.
+  check('An opportunity shows its closing date and places', /closes/i.test(txt) && /place\(s\)/i.test(txt));
+  check('The beneficiary can act on an opportunity, not just read it',
+    (await page.locator('button', { hasText: 'Apply' }).count()) > 0);
+  check('An announcement is marked as information only', /information only/i.test(txt));
+  check('The beneficiary sees the outcome of a past application', /not selected|accepted|awaiting a decision/i.test(txt));
+  check('A recorded reason is shown to the applicant', /reason recorded/i.test(txt));
+
+  await page.locator('button', { hasText: 'Apply' }).first().click();
+  await page.waitForSelector('[role="dialog"]');
+  check('Apply dialog opens with the opportunity detail', (await page.locator('#ap-note').count()) === 1);
+  check('Apply dialog promises an outcome with a reason',
+    /reason for it/i.test(await page.locator('[role="dialog"]').innerText()));
+  check('Apply dialog names the officer-mediated fallback',
+    /officer can apply for you/i.test(await page.locator('[role="dialog"]').innerText()));
+  await shot('17b-beneficiary-apply');
+  await page.fill('#ap-note', 'I would like to join the digital-skills course.');
+  await page.locator('.modal-foot button[type="submit"]').click();
+  await page.waitForTimeout(1200);
+  txt = await visibleText();
+  check('Applying records the application and shows its status',
+    /awaiting a decision|withdraw my application/i.test(txt));
+
+  // "I applied" filter — the beneficiary's own view of what they have done.
+  await page.selectOption('.toolbar select', 'mine');
+  await page.waitForTimeout(400);
+  check('Beneficiary can list only what they applied to',
+    /opportunity\/ies/i.test(await visibleText()));
+  await page.selectOption('.toolbar select', 'all');
+  await page.waitForTimeout(300);
   await shot('17-beneficiary-opportunities');
+
+  // The unread indicator carries decisions and deliveries onto every screen,
+  // instead of waiting for the beneficiary to think of opening Messages.
+  check('Beneficiary header carries an unread indicator',
+    (await page.locator('.bell').count()) === 1);
+  await page.locator('.bell').click();
+  await page.waitForTimeout(600);
+  check('The bell opens the messages page', page.url().includes('/beneficiary/messages'));
 
   // ═══ PROVIDER ═══
   section('PROVIDER DASHBOARD');
@@ -275,6 +432,18 @@ const section = (s) => log.push(`\n=== ${s} ===`);
   await goto('/admin/audit');
   txt = await visibleText();
   check('Audit log renders attributed entries', txt.includes('Officer Uwimana'));
+  check('Audit log states the range and the total', /showing \d+–\d+ of \d+/i.test(txt), txt.slice(0, 120));
+  // The log is the evidence trail, so it has to be interrogable — searching
+  // only what is on screen would answer "nothing found" about entries that exist.
+  await page.fill('#aud-q', 'Registered');
+  await page.waitForTimeout(900);
+  txt = await visibleText();
+  check('Audit search filters server-side', /registered/i.test(txt) && !/Decided/i.test(txt));
+  await page.fill('#aud-q', 'zzzzznomatch');
+  await page.waitForTimeout(900);
+  check('Audit search reports an honest empty state', /no entries match/i.test(await visibleText()));
+  await page.fill('#aud-q', '');
+  await page.waitForTimeout(900);
   await shot('25-admin-audit');
 
   await goto('/admin/announcement');

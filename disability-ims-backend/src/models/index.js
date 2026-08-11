@@ -104,7 +104,50 @@ export const Opportunity = sequelize.define('Opportunity', {
   title:      { type: DataTypes.STRING, allowNull: false },
   org:        { type: DataTypes.STRING },
   detail:     { type: DataTypes.TEXT },
+  // A closing date, because an opportunity with no deadline is a listing that
+  // never resolves: nobody can tell whether it is still open, and the people
+  // least able to chase it are the ones who assume it has passed.
+  deadline:   { type: DataTypes.DATEONLY },
+  // How many places exist. Stating it is what makes a rejection legible as
+  // "there were 20 places and 60 applicants" rather than "they chose others".
+  slots:      { type: DataTypes.INTEGER },
+  // An announcement is information; a scholarship, job or training is
+  // something a person must be able to ACT on.
+  acceptsApplications: { type: DataTypes.BOOLEAN, defaultValue: true },
   postedById: { type: DataTypes.INTEGER },
+});
+
+// ── Applications to an opportunity ───────────────────────────
+// The gap this closes: the system notified a beneficiary that a scholarship
+// existed and then left them with nowhere to go. Information reached them but
+// action did not, which reproduces the exclusion the registry exists to end.
+//
+// `origin` matters as much here as it does on a support request. A person who
+// cannot read the form, has no email, or has no device is exactly the person
+// an opportunity is least likely to reach — so an officer can apply on their
+// behalf, and the record says plainly that this is what happened.
+export const OpportunityApplication = sequelize.define('OpportunityApplication', {
+  id:            { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  opportunityId: { type: DataTypes.INTEGER, allowNull: false },
+  beneficiaryId: { type: DataTypes.INTEGER, allowNull: false },
+  note:          { type: DataTypes.TEXT },       // why this person, in their own words
+  origin:        { type: DataTypes.ENUM('BENEFICIARY', 'OFFICER'), allowNull: false, defaultValue: 'BENEFICIARY' },
+  submittedById: { type: DataTypes.INTEGER },    // the user who actually pressed the button
+  status:        { type: DataTypes.ENUM('SUBMITTED', 'SHORTLISTED', 'ACCEPTED', 'DECLINED', 'WITHDRAWN'), defaultValue: 'SUBMITTED' },
+  // Required on any decision, exactly as it is on a support request: an
+  // outcome a person cannot have explained to them is indistinguishable from
+  // an arbitrary one.
+  decisionReason:{ type: DataTypes.TEXT },
+  decidedById:   { type: DataTypes.INTEGER },
+  decidedAt:     { type: DataTypes.DATE },
+}, {
+  indexes: [
+    { fields: ['opportunityId'] },
+    { fields: ['beneficiaryId'] },
+    // One person, one application per opportunity — the same single-record
+    // discipline the registry itself is built on.
+    { unique: true, fields: ['opportunityId', 'beneficiaryId'] },
+  ],
 });
 
 // ── Notifications ────────────────────────────────────────────
@@ -151,6 +194,11 @@ Beneficiary.hasMany(Notification, { foreignKey: 'beneficiaryId' });
 Notification.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId' });
 
 Opportunity.belongsTo(User, { foreignKey: 'postedById', as: 'author' });
+
+Opportunity.hasMany(OpportunityApplication, { foreignKey: 'opportunityId', as: 'applications', onDelete: 'CASCADE' });
+OpportunityApplication.belongsTo(Opportunity, { foreignKey: 'opportunityId', as: 'opportunity' });
+Beneficiary.hasMany(OpportunityApplication, { foreignKey: 'beneficiaryId', as: 'applications', onDelete: 'CASCADE' });
+OpportunityApplication.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId', as: 'beneficiary' });
 
 User.belongsTo(Beneficiary, { foreignKey: 'beneficiaryId' });
 User.belongsTo(Provider, { foreignKey: 'providerId' });

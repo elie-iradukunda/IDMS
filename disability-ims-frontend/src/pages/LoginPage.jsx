@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useUI } from '../context/UIContext.jsx';
-import { ROLES, DEMO_ACCOUNTS, DEMO_PASSWORD, roleHome } from '../lib/constants.js';
+import { ROLES, DEMO_ACCOUNTS, DEMO_PASSWORD, SHOW_DEMO_ACCOUNTS, roleHome } from '../lib/constants.js';
 import A11yBar from '../components/A11yBar.jsx';
 
 export default function LoginPage() {
@@ -121,7 +121,12 @@ export default function LoginPage() {
                 </div>
               </div>
               <div>
-                <label className="field-label" htmlFor="pw">{t('password')}</label>
+                <div className="flex items-baseline justify-between gap-3">
+                  <label className="field-label" htmlFor="pw">{t('password')}</label>
+                  <Link to="/forgot-password" className="field-label" style={{ color: 'var(--brand)' }}>
+                    {t.x('Forgot your password?', 'Wibagiwe ijambobanga?')}
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-2" />
                   <input
@@ -141,23 +146,34 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 border-t border-border pt-7">
-              <h3 className="font-semibold text-text">{t('demo')}</h3>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {DEMO_ACCOUNTS.map((roleKey) => {
-                  const r = ROLES[roleKey];
-                  return (
-                    <button key={roleKey} type="button" className="chip" onClick={() => doLogin(r.email, DEMO_PASSWORD)} disabled={busy}>
-                      <span className="chip-ico" style={{ background: r.bg }}>{r.ico}</span>
-                      <span className="min-w-0">
-                        <div className="chip-t">{t(r.key)}</div>
-                        <div className="chip-e truncate">{r.email}</div>
-                      </span>
-                    </button>
-                  );
-                })}
+            {SHOW_DEMO_ACCOUNTS ? (
+              <div className="mt-8 border-t border-border pt-7">
+                <h3 className="font-semibold text-text">{t('demo')}</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {DEMO_ACCOUNTS.map((roleKey) => {
+                    const r = ROLES[roleKey];
+                    return (
+                      <button key={roleKey} type="button" className="chip" onClick={() => doLogin(r.email, DEMO_PASSWORD)} disabled={busy}>
+                        <span className="chip-ico" style={{ background: r.bg }}>{r.ico}</span>
+                        <span className="min-w-0">
+                          <div className="chip-t">{t(r.key)}</div>
+                          <div className="chip-e truncate">{r.email}</div>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-8 border-t border-border pt-7">
+                <small className="hint">
+                  {t.x(
+                    'Accounts are issued by your local officer (beneficiaries) or by an administrator (staff), and the credentials arrive by email. If you have not received them, contact your sector office.',
+                    "Konti zitangwa n'umukozi w'akarere cyangwa umuyobozi, ibimenyetso bikoherezwa kuri imeyili. Nutabibona, vugana n'ibiro by'umurenge.",
+                  )}
+                </small>
+              </div>
+            )}
           </section>
         </div>
       </div>

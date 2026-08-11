@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Small presentational primitives shared across pages.
 // ─────────────────────────────────────────────────────────────
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { REQ_BADGE } from '../lib/constants.js';
 import { useUI } from '../context/UIContext.jsx';
 import { timeAgo } from '../lib/format.js';
@@ -128,6 +129,39 @@ export function StatCard({ icon: Icon, label, value, subtext, color = 'green' })
         </div>
       </div>
     </div>
+  );
+}
+
+// Pagination control for the long lists (registry, audit).
+//
+// It states the range and the total, not just "next/previous". A district
+// registry is measured against ~2,400 people, so "24 records" on screen with
+// no total is the difference between an officer believing their search found
+// almost nobody and knowing it found four hundred.
+export function Pager({ page, pageSize, total, count, onPage }) {
+  const { t } = useUI();
+  const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+  const from = total ? page * pageSize + 1 : 0;
+  const to = page * pageSize + count;
+
+  if (total <= pageSize) return null;
+
+  return (
+    <nav
+      className="row-actions"
+      style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 18 }}
+      aria-label={t.x('Pagination', 'Amapaji')}
+    >
+      <button className="btn ghost sm" disabled={page === 0} onClick={() => onPage(Math.max(0, page - 1))}>
+        <ChevronLeft className="h-[14px] w-[14px]" aria-hidden="true" /> {t.x('Previous', 'Ibibanza')}
+      </button>
+      <small className="hint" role="status">
+        {t.x(`Showing ${from}–${to} of ${total}`, `Byerekanwa ${from}–${to} kuri ${total}`)}
+      </small>
+      <button className="btn ghost sm" disabled={page >= lastPage} onClick={() => onPage(page + 1)}>
+        {t.x('Next', 'Ibikurikira')} <ChevronRight className="h-[14px] w-[14px]" aria-hidden="true" />
+      </button>
+    </nav>
   );
 }
 

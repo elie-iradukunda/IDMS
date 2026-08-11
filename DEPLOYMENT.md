@@ -37,8 +37,9 @@ absolute path.
 | Variable | Required | Example / note |
 |---|---|---|
 | `DATABASE_URL` | ✅ | `mysql://user:pass@host:3306/disability_ims` |
-| `JWT_SECRET` | ✅ | long random string |
-| `NODE_ENV` | | `production` in prod |
+| `JWT_SECRET` | ✅ | long random string. With `NODE_ENV=production` the server **refuses to start** if it is missing or under 32 characters — a placeholder secret means anyone can forge a token for any role |
+| `NODE_ENV` | | `production` in prod. Also enables the CORS allowlist and the `MAIL_REDIRECT_TO` guard below |
+| `CORS_ORIGIN` | | comma-separated origins allowed to call the API, e.g. `https://ids.kamonyi.gov.rw`. Only needed for a **split** deploy; leave blank when the API serves the SPA itself |
 | `PORT` | | defaults to `4000` (most hosts inject this) |
 | `CLIENT_DIST` | | absolute path to `dist/`; blank = auto-detect sibling |
 | `ESTIMATED_PWD_POPULATION` | | coverage denominator (default `2400`) |
@@ -47,7 +48,13 @@ absolute path.
 | `SMTP_HOST`/`SMTP_*` | | for `MAIL_PROVIDER=smtp` |
 | `APP_URL` | | public web-app URL the buttons in outgoing email link to |
 | `MAIL_FROM` | | overrides the From header; defaults to the Gmail/SMTP identity |
-| `MAIL_REDIRECT_TO` | | **dev only** — divert all mail to one address. Must be **empty** in production or no beneficiary receives their own notifications |
+| `MAIL_REDIRECT_TO` | | **dev only** — divert all mail to one address. Must be **empty** in production; with `NODE_ENV=production` the server refuses to start while it is set, because otherwise one person's decision letter is delivered to somebody else's inbox |
+
+### Env vars (frontend, build time)
+| Variable | Note |
+|---|---|
+| `VITE_API_URL` | API origin **including `/api`**. Only for a split deploy; blank means same-origin |
+| `VITE_SHOW_DEMO_ACCOUNTS` | `true` re-enables the one-click demo sign-in cards on the login screen. They are hidden in any production build by default — they publish a working credential for every role, including the administrator who can read the whole registry. Set this only for a demonstration instance holding no real data |
 
 The mail transport is verified at startup, so a wrong app password shows up in the
 deploy log rather than on the first beneficiary registration. Delivery is best-effort
@@ -61,7 +68,7 @@ Host the API and the static frontend independently (e.g. API on Render, static
 site on Netlify/Vercel).
 
 1. **Backend**: deploy `disability-ims-backend` with the env vars above (no
-   `CLIENT_DIST`). CORS is already enabled. Note its public URL.
+   `CLIENT_DIST`). Set `CORS_ORIGIN` to the web app's origin. Note its public URL.
 2. **Frontend**: set `VITE_API_URL` to the API origin **including `/api`**, then build:
    ```bash
    cd disability-ims-frontend
@@ -82,6 +89,9 @@ site on Netlify/Vercel).
 - [ ] Serve over **HTTPS** (terminate TLS at the platform/reverse proxy).
 - [ ] Strong `JWT_SECRET`; real `DATABASE_URL`; `NODE_ENV=production`.
 - [ ] Seeded once (or migrated); demo passwords changed for any real accounts.
+- [ ] `VITE_SHOW_DEMO_ACCOUNTS` **unset**, so the login screen does not publish a
+      working administrator credential.
+- [ ] `CORS_ORIGIN` set if — and only if — the web app is on a different origin.
 - [ ] Mail provider configured (`MAIL_PROVIDER` + credentials) and **`MAIL_REDIRECT_TO`
       cleared**, so decisions, deliveries and opportunities reach the real recipients.
 - [ ] `APP_URL` pointing at the deployed web app, not `localhost`.

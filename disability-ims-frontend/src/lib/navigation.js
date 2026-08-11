@@ -1,6 +1,6 @@
 import {
   Users, FilePlus2, HandHeart, ClipboardList, Megaphone, UserRound, Activity,
-  Inbox, Search, LayoutDashboard, UserCog, Building2, Settings,
+  Inbox, Search, LayoutDashboard, UserCog, Building2, Settings, Gauge,
 } from 'lucide-react';
 
 // Per-role header identity (bilingual).
@@ -12,14 +12,17 @@ export const roleMeta = {
 };
 
 // Sidebar navigation, keyed by backend role. Labels are bilingual; each
-// entry maps to an existing route/page.
+// entry maps to an existing route/page. `badge` names a count from
+// /officer/badges, so a queue with people waiting in it is visible from
+// anywhere rather than only once the tab is opened.
 export const navByRole = {
   OFFICER: [
+    { path: '/officer/overview',    en: 'Overview',            rw: 'Incamake',    icon: Gauge },
     { path: '/officer/registry',    en: 'Registry',            rw: 'Registry',   icon: Users },
     { path: '/officer/register',    en: 'Register beneficiary', rw: 'Kwandika',   icon: FilePlus2 },
-    { path: '/officer/requests',    en: 'Support requests',    rw: 'Ibyifuzo',    icon: HandHeart },
-    { path: '/officer/corrections', en: 'Corrections',         rw: 'Gukosora',    icon: ClipboardList },
-    { path: '/officer/publish',     en: 'Publish opportunity', rw: 'Tangaza',     icon: Megaphone },
+    { path: '/officer/requests',    en: 'Support requests',    rw: 'Ibyifuzo',    icon: HandHeart, badge: 'requests' },
+    { path: '/officer/corrections', en: 'Corrections',         rw: 'Gukosora',    icon: ClipboardList, badge: 'corrections' },
+    { path: '/officer/publish',     en: 'Opportunities',       rw: 'Amahirwe',    icon: Megaphone, badge: 'applications' },
     { path: '/officer/account',     en: 'My account',          rw: 'Konti yanjye', icon: Settings },
   ],
   BENEFICIARY: [

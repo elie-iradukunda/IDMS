@@ -317,6 +317,104 @@ export const sendOpportunity = ({ to, kind, title, org, detail }) => send(
   },
 );
 
+// 3b. An opportunity that can be applied to — the email says how to respond.
+// Telling someone an opportunity exists and not telling them they can act on
+// it is most of the way back to the exclusion the registry exists to end.
+export const sendOpportunityOpen = ({ to, kind, title, org, detail, deadline, slots }) => send(
+  to, `New ${kind}: ${title} — you can apply`,
+  {
+    badge: 'OPEN FOR APPLICATIONS',
+    tone: 'blue',
+    preheader: `${title}${deadline ? ` — apply by ${deadline}` : ''}`,
+    title,
+    lines: [
+      'A new opportunity has been published for registered beneficiaries, and you can apply for it yourself by signing in.',
+      "Hari amahirwe mashya yatangajwe ku bunganirwa banditswe. Urashobora kuyasaba ubwawe winjiye muri sisitemu.",
+      ...(detail ? [detail] : []),
+      "If you cannot use the website, your local officer can apply on your behalf — ask them. Niba udashobora gukoresha sisitemu, umukozi w'akarere abikora mu izina ryawe.",
+    ],
+    facts: [
+      ['Type / Ubwoko', kind],
+      ...(org ? [['Published by / Batanze', org]] : []),
+      ...(deadline ? [['Closing date / Itariki ntarengwa', deadline]] : []),
+      ...(slots ? [['Places available / Imyanya', String(slots)]] : []),
+    ],
+    action: { label: 'Sign in and apply / Injira usabe', url: APP_URL },
+    footnote: 'You will be told the outcome of your application, with the reason for it. Uzamenyeshwa icyemezo cyafashwe n\'impamvu yacyo.',
+  },
+);
+
+// 3c. Somebody applied — to whoever published the opportunity.
+export const sendApplicationReceived = ({ to, title, kind, beneficiary, code, sector, note, onBehalf }) => send(
+  to, `New application: ${title}`,
+  {
+    badge: 'APPLICATION RECEIVED',
+    tone: 'blue',
+    preheader: `${beneficiary} (${code}) applied to ${title}`,
+    title: 'Someone applied to your posting',
+    lines: [
+      `${beneficiary} has applied to "${title}".`,
+      ...(onBehalf
+        ? ['This application was submitted by a local officer on the beneficiary\'s behalf, because they could not use the form themselves.']
+        : []),
+      'Review it in the system and record a decision. The applicant is shown the outcome and the reason for it.',
+    ],
+    ...(note ? { callout: note } : {}),
+    facts: [
+      ['Applicant / Usaba', `${beneficiary} (${code})`],
+      ['Sector / Umurenge', sector || '—'],
+      ['Opportunity / Amahirwe', `${title} (${kind})`],
+    ],
+    action: signIn,
+  },
+);
+
+// 3d. The decision on an application — with the reason, as everywhere else.
+export const sendApplicationDecision = ({ to, name, title, kind, status, reason, org }) => {
+  const meta = {
+    ACCEPTED: {
+      badge: 'ACCEPTED', tone: 'green', subject: `You were accepted: ${title}`,
+      head: 'Your application was accepted',
+      lines: [
+        `Muraho ${name}, your application to "${title}" was accepted.`,
+        `Wemerewe muri "${title}". Uzahabwa amakuru y'ibikurikira.`,
+      ],
+    },
+    SHORTLISTED: {
+      badge: 'SHORTLISTED', tone: 'amber', subject: `Shortlisted: ${title}`,
+      head: 'Your application has been shortlisted',
+      lines: [
+        `Muraho ${name}, your application to "${title}" has moved to the next stage.`,
+        `Icyifuzo cyawe muri "${title}" cyageze ku ntambwe ikurikira.`,
+      ],
+    },
+    DECLINED: {
+      badge: 'NOT SELECTED', tone: 'gray', subject: `Outcome of your application: ${title}`,
+      head: 'You were not selected this time',
+      lines: [
+        `Muraho ${name}, your application to "${title}" was not selected. The reason is recorded below, and applying again for future opportunities is welcome.`,
+        `Ntiwatoranyijwe muri "${title}". Impamvu iri hasi. Ushobora kongera gusaba andi mahirwe azaza.`,
+      ],
+    },
+  }[status];
+
+  return send(to, meta.subject, {
+    badge: meta.badge,
+    tone: meta.tone,
+    preheader: `${title}${org ? ` — ${org}` : ''}`,
+    title: meta.head,
+    lines: meta.lines,
+    callout: reason,
+    facts: [
+      ['Opportunity / Amahirwe', title],
+      ['Type / Ubwoko', kind],
+      ...(org ? [['Organisation / Umuryango', org]] : []),
+    ],
+    action: signIn,
+    footnote: 'Every decision on this system carries a recorded reason, so you can always ask what it was based on. Buri cyemezo gifite impamvu yanditse.',
+  });
+};
+
 // 4. A support request was created for a beneficiary.
 export const sendRequestCreated = ({ to, code, need, byRole }) => send(
   to, `Support request ${code} created`,

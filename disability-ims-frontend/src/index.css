@@ -113,6 +113,20 @@ body.hc .sidebar { border-right: 1px solid var(--border-2); }
 .sidebar-link:hover { background: rgba(255,255,255,.1); color: #fff; }
 .sidebar-link.active { background: #fff; color: var(--brand); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
 body.hc .sidebar-link.active { color: #000; }
+/* Count of items waiting behind a sidebar tab. It must stay legible against
+   both the green rail and the white active pill, so it carries its own
+   background in each state rather than inheriting the link's colour. */
+.nav-count { flex-shrink: 0; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.22); color: #fff; font-size: 11px; font-weight: 800; text-align: center; line-height: 18px; }
+.sidebar-link.active .nav-count { background: var(--red); color: #fff; }
+body.hc .nav-count { background: var(--brand); color: #000; }
+body.hc .sidebar-link.active .nav-count { background: #000; color: var(--brand); }
+
+/* Header notification bell + its unread badge. */
+.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); transition: .15s; }
+.bell:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+.bell-count { position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 800; line-height: 19px; text-align: center; border: 2px solid var(--surface); }
+body.hc .bell-count { color: #000; background: var(--brand); }
+
 .app-header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 16px; min-height: 72px; padding: 10px 24px; background: color-mix(in srgb, var(--surface) 95%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
 .app-main { padding: 24px 20px 72px; }
 .avatar { display: flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 700; color: #fff; box-shadow: 0 8px 24px rgba(8,117,54,.18); }
@@ -186,6 +200,20 @@ small.hint { color: var(--muted-2); font-size: 12.5px; line-height: 1.45; }
 .spinner { width: 22px; height: 22px; border: 3px solid var(--border-2); border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
 .load-wrap { display: flex; align-items: center; gap: 10px; color: var(--muted); margin-top: 26px; font-size: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Print ──────────────────────────────────────────────────────
+   The reports screen is printed to be tabled at a council meeting, so the
+   navigation, the accessibility rail and the export buttons — none of which
+   mean anything on paper — are dropped, and the panels lose the shadows and
+   dark fills that a printer renders as grey blocks. */
+@media print {
+  .sidebar, .app-header, .toolbar, .bell, .a11y, .row-actions { display: none !important; }
+  .app-main { padding: 0 !important; }
+  body, .card, .stat { background: #fff !important; color: #000 !important; }
+  .card, .stat { box-shadow: none !important; border: 1px solid #999 !important; break-inside: avoid; }
+  .grid, .stats { gap: 10px !important; }
+  a[href]::after { content: ""; }
+}
 
 /* ── Modal dialogs ──────────────────────────────────────────────
    Every create/edit/confirm action opens a dialog rather than expanding

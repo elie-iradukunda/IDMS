@@ -20,6 +20,16 @@ export function timeAgo(input, lang = 'en') {
   return new Date(then).toLocaleDateString();
 }
 
+// Whole days from today until a YYYY-MM-DD closing date; negative once it has
+// passed, null when there is no date. A deadline day counts as still open, so
+// "closes today" is a warning rather than a refusal.
+export function daysUntil(dateOnly) {
+  if (!dateOnly) return null;
+  const end = new Date(`${dateOnly}T23:59:59`).getTime();
+  if (Number.isNaN(end)) return null;
+  return Math.ceil((end - Date.now()) / 864e5) - 1;
+}
+
 // First name / short label helper (e.g. "Mukamana Alice" → "Alice").
 export function shortName(fullName = '') {
   const parts = fullName.trim().split(/\s+/);

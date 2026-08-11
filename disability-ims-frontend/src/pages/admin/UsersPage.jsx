@@ -192,6 +192,7 @@ function UserDialog({ u, providers, onClose, onDone }) {
         : t.x('The account is created and its credentials are emailed to the address below. Leave the password blank to have the system generate one.',
           'Konti irakorwa kandi ibimenyetso byo kwinjira byoherezwa kuri iyi imeyili.')}
       submitLabel={editing ? t.x('Save changes', 'Bika') : t.x('Create account', 'Kora konti')}
+      onSubmit={submit}
     >
       <div className="form-grid">
         <div>

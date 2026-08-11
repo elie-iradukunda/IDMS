@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Bell, LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
+import { get, getToken } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useUI } from '../context/UIContext.jsx';
 import { roleHome } from '../lib/constants.js';
 import { navByRole, roleMeta } from '../lib/navigation.js';
 import { Loading } from './ui.jsx';
 import Toast from './Toast.jsx';
+import NotificationBell from './NotificationBell.jsx';
 
 const initials = (name = '') =>
   name.split(' ').map((p) => p[0] || '').join('').slice(0, 2).toUpperCase();
@@ -25,7 +27,7 @@ function BrandMark() {
   );
 }
 
-function Sidebar({ role, onNavigate }) {
+function Sidebar({ role, onNavigate, badges = {} }) {
   const { a, t, logout } = useSidebarData();
   const items = navByRole[role] || [];
   return (
@@ -36,15 +38,27 @@ function Sidebar({ role, onNavigate }) {
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
         {items.map((item) => {
           const Icon = item.icon;
+          const count = item.badge ? badges[item.badge] : 0;
+          const label = a.lang === 'rw' ? item.rw : item.en;
           return (
             <NavLink
               key={item.path}
               to={item.path}
               onClick={onNavigate}
+              end={item.end}
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
               <Icon className="h-[17px] w-[17px]" />
-              {a.lang === 'rw' ? item.rw : item.en}
+              <span className="flex-1">{label}</span>
+              {/* Work waiting behind a tab is work that ages unseen. */}
+              {count > 0 && (
+                <span
+                  className="nav-count"
+                  aria-label={a.lang === 'rw' ? `${count} bitegereje` : `${count} awaiting attention`}
+                >
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
             </NavLink>
           );
         })}
@@ -64,6 +78,31 @@ function useSidebarData() {
   const { a, t } = useUI();
   const { logout } = useAuth();
   return { a, t, logout };
+}
+
+// Counts for the sidebar badges. Only the officer has a queue that other
+// people are waiting inside, so only the officer pays for the request.
+const BADGE_POLL_MS = 60_000;
+
+function useOfficerBadges(role, pathname) {
+  const [badges, setBadges] = useState({});
+
+  const refresh = useCallback(() => {
+    // Same reasoning as the notification bell: no token, nothing to count —
+    // and a tokenless poll would 401 and force a spurious logout.
+    if (role !== 'OFFICER' || !getToken()) return;
+    get('/officer/badges').then(setBadges).catch(() => {});
+  }, [role]);
+
+  // Refetch on navigation too: deciding a request should empty the badge that
+  // sent the officer there, not leave a number that contradicts the page.
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, BADGE_POLL_MS);
+    return () => clearInterval(id);
+  }, [refresh, pathname]);
+
+  return badges;
 }
 
 function HeaderA11y() {
@@ -99,6 +138,7 @@ export default function DashboardLayout({ role }) {
   const { a, t } = useUI();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const badges = useOfficerBadges(user?.role, location.pathname);
 
   if (!ready) return <Loading />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -110,7 +150,7 @@ export default function DashboardLayout({ role }) {
     <div className="min-h-screen bg-bg">
       <div className="grid min-h-screen lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 lg:block">
-          <Sidebar role={user.role} />
+          <Sidebar role={user.role} badges={badges} />
         </aside>
 
         {mobileOpen && (
@@ -124,7 +164,7 @@ export default function DashboardLayout({ role }) {
               >
                 <X className="h-5 w-5" />
               </button>
-              <Sidebar role={user.role} onNavigate={() => setMobileOpen(false)} />
+              <Sidebar role={user.role} badges={badges} onNavigate={() => setMobileOpen(false)} />
             </div>
           </div>
         )}
@@ -145,6 +185,7 @@ export default function DashboardLayout({ role }) {
             </div>
             <div className="ml-auto flex items-center gap-4">
               <HeaderA11y />
+              {user.role === 'BENEFICIARY' && <NotificationBell />}
               <div className="hidden h-8 w-px bg-border sm:block" />
               <div className="flex items-center gap-2.5">
                 <span className="avatar h-9 w-9 text-xs sky-grad" aria-hidden="true">

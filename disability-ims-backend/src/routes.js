@@ -9,9 +9,17 @@ import * as registry from './services/registry.service.js';
 import * as support from './services/support.service.js';
 import * as reports from './services/reports.service.js';
 import * as admin from './services/admin.service.js';
+import * as applications from './services/application.service.js';
 
 export const router = Router();
 const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).then((d) => res.json(d)).catch(next);
+
+// Paged list handler. The service returns { rows, total }; the response body
+// stays a plain array so every existing client keeps working, and the full
+// match count travels in X-Total-Count for the ones that page.
+const hList = (fn) => (req, res, next) => Promise.resolve(fn(req, res))
+  .then(({ rows, total }) => { res.set('X-Total-Count', String(total)); res.json(rows); })
+  .catch(next);
 
 // ── Public ───────────────────────────────────────────────────
 router.post('/auth/login',           h((req) => auth.login(req.body)));
@@ -28,7 +36,9 @@ router.get ('/opportunities',   h(() => reports.listOpportunities()));
 
 // ── Officer ──────────────────────────────────────────────────
 const asOfficer = authorize('OFFICER');
-router.get   ('/registry',                    asOfficer, h((req) => registry.listRegistry(req.query)));
+router.get   ('/officer/overview',            asOfficer, h((req) => reports.officerOverview(req.user)));
+router.get   ('/officer/badges',              asOfficer, h(() => reports.officerBadges()));
+router.get   ('/registry',                    asOfficer, hList((req) => registry.listRegistry(req.query)));
 router.get   ('/registry/:id',                asOfficer, h((req) => registry.getBeneficiary(+req.params.id)));
 router.post  ('/registry',                    asOfficer, h((req) => registry.registerBeneficiary(req.user, req.body)));
 router.post  ('/registry/check-duplicate',    asOfficer, h((req) => registry.findDuplicates(req.body)));
@@ -61,6 +71,27 @@ router.post  ('/opportunities',     authorize('OFFICER', 'PROVIDER', 'ADMIN'), h
 router.patch ('/opportunities/:id', authorize('OFFICER', 'PROVIDER', 'ADMIN'), h((req) => reports.updateOpportunity(req.user, +req.params.id, req.body)));
 router.delete('/opportunities/:id', authorize('OFFICER', 'PROVIDER', 'ADMIN'), h((req) => reports.deleteOpportunity(req.user, +req.params.id)));
 
+// ── Applying to an opportunity ───────────────────────────────
+// Publishing without a way to respond only moves the exclusion one step
+// later, so an opportunity is something a beneficiary can act on. A
+// beneficiary applies for themselves; an officer may apply on behalf of
+// someone who cannot use the form, has no email, or has no device.
+router.post('/opportunities/:id/apply', authorize('BENEFICIARY', 'OFFICER'),
+  h((req) => applications.apply(req.user, +req.params.id, req.body)));
+router.post('/applications/:id/withdraw', authorize('BENEFICIARY', 'OFFICER'),
+  h((req) => applications.withdraw(req.user, +req.params.id)));
+router.get ('/my/applications', authorize('BENEFICIARY'),
+  h((req) => applications.mine(req.user)));
+
+// Review: the publisher, any officer, or an administrator. A provider sees
+// applications to their own postings only.
+router.get ('/opportunities/:id/applications', authorize('OFFICER', 'PROVIDER', 'ADMIN'),
+  h((req) => applications.listForOpportunity(req.user, +req.params.id)));
+router.get ('/applications/pending', authorize('OFFICER', 'PROVIDER', 'ADMIN'),
+  h((req) => applications.pending(req.user)));
+router.post('/applications/:id/decide', authorize('OFFICER', 'PROVIDER', 'ADMIN'),
+  h((req) => applications.decide(req.user, +req.params.id, req.body.status, req.body.reason)));
+
 // ── Beneficiary (read-only own record; may ask for support) ──
 const asBeneficiary = authorize('BENEFICIARY');
 router.get   ('/my/profile',       asBeneficiary, h((req) => registry.myProfile(req.user)));
@@ -68,6 +99,7 @@ router.get   ('/my/support',       asBeneficiary, h((req) => support.listMine(re
 router.get   ('/my/corrections',   asBeneficiary, h((req) => registry.myCorrections(req.user)));
 router.post  ('/my/corrections',   asBeneficiary, h((req) => registry.requestCorrection(req.user, req.body.text)));
 router.get   ('/my/notifications', asBeneficiary, h((req) => reports.myNotifications(req.user)));
+router.get   ('/my/notifications/unread-count', asBeneficiary, h((req) => reports.myUnreadCount(req.user)));
 router.post  ('/my/notifications/:id/read', asBeneficiary, h((req) => reports.markRead(req.user, +req.params.id)));
 router.post  ('/my/notifications/read-all', asBeneficiary, h((req) => reports.markAllRead(req.user)));
 router.delete('/my/notifications/:id',      asBeneficiary, h((req) => reports.deleteNotification(req.user, +req.params.id)));
@@ -80,7 +112,7 @@ router.get('/provider/offers', asProvider, h((req) => support.listProviderOffers
 // ── Admin ────────────────────────────────────────────────────
 const asAdmin = authorize('ADMIN');
 router.get   ('/admin/reports',    asAdmin, h(() => reports.reports()));
-router.get   ('/admin/audit',      asAdmin, h((req) => reports.auditLog(req.query)));
+router.get   ('/admin/audit',      asAdmin, hList((req) => reports.auditLog(req.query)));
 
 // Provider organisations (full CRUD) — a provider account cannot exist
 // without an organisation for it to belong to.
@@ -98,4 +130,4 @@ router.delete('/admin/users/:id',            asAdmin, h((req) => admin.deleteUse
 
 // Oversight: the administrator monitors coverage and distribution, so they
 // read the registry — they do not gain the officer's authority to change it.
-router.get('/admin/registry', asAdmin, h((req) => registry.listRegistry(req.query)));
+router.get('/admin/registry', asAdmin, hList((req) => registry.listRegistry(req.query)));

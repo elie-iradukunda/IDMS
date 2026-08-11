@@ -13,6 +13,22 @@ import { verifyMailer } from './services/notify.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PRODUCTION = process.env.NODE_ENV === 'production';
+
+// A signing secret left at its placeholder means every token in the system can
+// be forged by anyone who has read the source. In development that is a
+// convenience; in production it is a total authentication bypass, so the
+// process refuses to start rather than coming up quietly insecure.
+if (PRODUCTION && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)) {
+  console.error('Startup refused: JWT_SECRET must be set to a random value of at least 32 characters in production.');
+  process.exit(1);
+}
+// Sending real notification mail to a redirect address in production would
+// deliver one person's decision letter to somebody else's inbox.
+if (PRODUCTION && process.env.MAIL_REDIRECT_TO) {
+  console.error('Startup refused: MAIL_REDIRECT_TO is a development-only setting and must be empty in production.');
+  process.exit(1);
+}
 
 // Security headers + a Content-Security-Policy that allows the built SPA
 // (same-origin scripts/assets, inline styles for React style props, and the
@@ -33,8 +49,26 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors());
+// CORS. When the SPA is served from this same origin (the default deploy) no
+// cross-origin request is needed at all. Where the frontend is hosted
+// separately, list its origin(s) in CORS_ORIGIN — an open policy would let any
+// site on the internet drive this API with a token it has managed to obtain.
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);                       // curl, server-to-server, same-origin
+    if (!PRODUCTION || !allowedOrigins.length) return cb(null, true); // dev, or single-origin deploy
+    return allowedOrigins.includes(origin)
+      ? cb(null, true)
+      : cb(new AppError(403, 'Origin not allowed by CORS policy'));
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
+// Total row counts for paginated lists travel in a header, so the list
+// endpoints keep returning a plain array. Browsers hide non-simple response
+// headers from fetch() unless they are explicitly exposed.
+app.use((_req, res, next) => { res.set('Access-Control-Expose-Headers', 'X-Total-Count'); next(); });
 
 // Brute-force protection on the login endpoint. Only FAILED attempts are
 // counted: a rural district office shares one internet connection, so

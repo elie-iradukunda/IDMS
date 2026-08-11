@@ -1,13 +1,18 @@
-import { useState, useRef, useMemo } from 'react';
-import { Trash2, HandHeart, Pencil, Archive, RotateCcw } from 'lucide-react';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { Trash2, HandHeart, Pencil, Archive, RotateCcw, Download } from 'lucide-react';
 import { patch, post, del, qs } from '../../lib/api.js';
 import { useUI } from '../../context/UIContext.jsx';
-import { useFetch } from '../../lib/useFetch.js';
+import { useFetch, usePagedFetch } from '../../lib/useFetch.js';
 import { useMutation } from '../../lib/useMutation.js';
+import { useDebounced } from '../../lib/useDebounced.js';
+import { registryColumns } from '../../lib/registryColumns.js';
+import { downloadCsv, stamped } from '../../lib/csv.js';
 import { SECTORS } from '../../lib/constants.js';
 import { DISABILITY, DIFFICULTY } from '../../lib/i18n.js';
-import { Card, Badge, ImpairmentTags, Empty, Loading, ErrorState } from '../../components/ui.jsx';
+import { Card, Badge, ImpairmentTags, Empty, Loading, ErrorState, Pager } from '../../components/ui.jsx';
 import { FormModal } from '../../components/Modal.jsx';
+
+const PAGE_SIZE = 24;
 
 // The centralised registry. Officers search, update the official record,
 // maintain the impairment list, and initiate support requests directly —
@@ -17,14 +22,29 @@ export default function RegistryPage() {
   const [q, setQ] = useState('');
   const [sector, setSector] = useState('all');
   const [status, setStatus] = useState('all');
+  const [page, setPage] = useState(0);
   const [dialog, setDialog] = useState(null);   // { kind, b }
 
-  // Filtering runs on the server so the officer is not searching one page
-  // of results while the rest of the district sits unqueried.
-  const { data, loading, error, reload } = useFetch(`/registry${qs({ q, sector, status })}`);
+  // Debounced so typing a name is one query rather than one per keystroke —
+  // on a shared rural connection the answers otherwise arrive out of order
+  // and the list flickers between results.
+  const term = useDebounced(q, 350);
+
+  // Filtering and paging both run on the server so the officer is not
+  // searching one page of results while the rest of the district sits
+  // unqueried, and the browser is not asked to hold 2,400 records at once.
+  const { data, total, loading, error, reload } =
+    usePagedFetch(`/registry${qs({ q: term, sector, status, limit: PAGE_SIZE, offset: page * PAGE_SIZE })}`);
+
+  // Any change to the query starts again at the first page; staying on page 7
+  // of the previous result set shows an empty list and reads as "no matches".
+  useEffect(() => { setPage(0); }, [term, sector, status]);
 
   const close = () => setDialog(null);
   const done = () => { close(); reload(); };
+
+  const exportCsv = () =>
+    downloadCsv(stamped('registry'), registryColumns({ t, includeNationalId: true }), data || []);
 
   return (
     <>
@@ -33,7 +53,7 @@ export default function RegistryPage() {
           <label htmlFor="sq" className="sr-only">{t.x('Search registry', 'Shakisha')}</label>
           <input
             id="sq" className="input"
-            placeholder={t.x('Search by name, code, village or need…', 'Shakisha izina, code, umudugudu…')}
+            placeholder={t.x('Search by name, code, ID, village or need…', 'Shakisha izina, code, indangamuntu…')}
             value={q} onChange={(e) => setQ(e.target.value)}
           />
         </div>
@@ -49,6 +69,10 @@ export default function RegistryPage() {
           <option value="ARCHIVED">{t('ARCHIVED')}</option>
           <option value="DECEASED">{t('DECEASED')}</option>
         </select>
+        <button className="btn ghost sm" onClick={exportCsv} disabled={!data?.length}>
+          <Download className="h-[15px] w-[15px]" aria-hidden="true" />
+          {t.x('Export page (CSV)', 'Kuramo (CSV)')}
+        </button>
       </div>
 
       {loading ? <Loading />
@@ -56,11 +80,14 @@ export default function RegistryPage() {
         : data?.length ? (
           <>
             <p className="page-sub" style={{ marginTop: 14 }} role="status">
-              {t.x(`${data.length} record(s)`, `Inyandiko ${data.length}`)}
+              {total > data.length
+                ? t.x(`${total} record(s) match — showing ${data.length}`, `Inyandiko ${total} zihuye — hagaragara ${data.length}`)
+                : t.x(`${total} record(s)`, `Inyandiko ${total}`)}
             </p>
             <div className="grid g2">
               {data.map((b) => <BenCard key={b.id} b={b} onAction={(kind) => setDialog({ kind, b })} />)}
             </div>
+            <Pager page={page} pageSize={PAGE_SIZE} total={total} count={data.length} onPage={setPage} />
           </>
         ) : (
           <Empty

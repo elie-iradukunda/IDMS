@@ -11,9 +11,10 @@
     "build": "npm ci --prefix disability-ims-frontend && npm run build --prefix disability-ims-frontend && npm ci --omit=dev --prefix disability-ims-backend",
     "start": "npm start --prefix disability-ims-backend",
     "seed": "npm run seed --prefix disability-ims-backend",
-    "test": "npm run seed && npm run test:api && npm run test:ui",
+    "test": "npm run seed && npm run test:api && npm run seed && npm run test:ui && npm run seed && npm run test:nav",
     "test:api": "node tests/api.e2e.mjs",
     "test:ui": "node tests/ui.e2e.cjs",
+    "test:nav": "node tests/nav.e2e.cjs",
     "test:mail": "node tests/mail.e2e.cjs"
   }
 }

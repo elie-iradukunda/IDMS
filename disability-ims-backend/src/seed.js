@@ -19,11 +19,15 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import {
   sequelize, User, Provider, Beneficiary, Impairment, SupportRequest,
-  RequestEvent, Correction, Opportunity, Notification, AuditLog, Counter,
+  RequestEvent, Correction, Opportunity, OpportunityApplication,
+  Notification, AuditLog, Counter,
 } from './models/index.js';
 
 const DAY = 864e5;
 const ago = (d) => new Date(Date.now() - d * DAY);
+// Closing dates are seeded relative to today so the demo data never ages into
+// a state where every opportunity is shut and nothing can be applied to.
+const inDays = (d) => new Date(Date.now() + d * DAY).toISOString().slice(0, 10);
 
 async function main() {
   await sequelize.sync({ force: true }); // drops & recreates — seed only
@@ -119,17 +123,22 @@ async function main() {
   }, [{ type: 'cognition', level: 'some' }]);
 
   // ── Users ──────────────────────────────────────────────────
-  const officer = await User.create({ fullName: 'Officer Uwimana', email: 'officer@kamonyi.gov.rw', role: 'OFFICER', sector: 'Kamonyi', passwordHash: pw });
+  // A district-wide officer has no sector, which is how the rest of the system
+  // spells it (the user admin offers "District-wide" as the empty option, and
+  // correction routing falls through to any active officer). Putting the
+  // district's own name in the sector column made this officer scoped to a
+  // sector that does not exist, so every sector-filtered count read zero.
+  const officer = await User.create({ fullName: 'Officer Uwimana', email: 'officer@kamonyi.gov.rw', role: 'OFFICER', sector: null, passwordHash: pw });
   const officer2 = await User.create({ fullName: 'Officer Mukandayisenga', email: 'officer2@kamonyi.gov.rw', role: 'OFFICER', sector: 'Musambira', passwordHash: pw });
   // A deactivated account: status ENUM needs a real case, and login must refuse it.
   await User.create({ fullName: 'Officer Ndayisaba (retired)', email: 'officer.retired@kamonyi.gov.rw', role: 'OFFICER', sector: 'Runda', status: 'INACTIVE', passwordHash: pw });
 
-  await User.create({ fullName: 'Mukamana Alice', email: 'alice@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1001'].id, passwordHash: pw });
+  const aliceUser = await User.create({ fullName: 'Mukamana Alice', email: 'alice@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1001'].id, passwordHash: pw });
   await User.create({ fullName: 'Uwase Claudine', email: 'claudine@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1003'].id, passwordHash: pw });
   await User.create({ fullName: 'Nsengimana Eric', email: 'eric@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1004'].id, passwordHash: pw });
-  await User.create({ fullName: 'Nyirahabimana Josiane', email: 'josiane@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1005'].id, passwordHash: pw });
+  const josianeUser = await User.create({ fullName: 'Nyirahabimana Josiane', email: 'josiane@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1005'].id, passwordHash: pw });
 
-  await User.create({ fullName: 'Inclusive Hands NGO', email: 'provider@ngo.rw', role: 'PROVIDER', providerId: ngo.id, passwordHash: pw });
+  const provider = await User.create({ fullName: 'Inclusive Hands NGO', email: 'provider@ngo.rw', role: 'PROVIDER', providerId: ngo.id, passwordHash: pw });
   await User.create({ fullName: 'Kamonyi Artisans Cooperative', email: 'coop@kamonyi.rw', role: 'PROVIDER', providerId: coop.id, passwordHash: pw });
   await User.create({ fullName: 'System Admin', email: 'admin@disability.gov.rw', role: 'ADMIN', passwordHash: pw });
 
@@ -204,11 +213,26 @@ async function main() {
   await Correction.create({ beneficiaryId: B['B-1004'].id, text: 'Nsaba guhindurirwa umurenge.', status: 'DECLINED', handledById: officer.id, createdAt: ago(20) });
 
   // ── Opportunities (every kind) ─────────────────────────────
-  await Opportunity.bulkCreate([
-    { kind: 'scholarship', title: "Bursary y'abanyeshuri bafite ubumuga", org: 'NCPD', postedById: officer.id, createdAt: ago(5), detail: "Buruse yuzuye ku mashuri y'imyuga, harimo n'ibikoresho by'ubufasha." },
-    { kind: 'job', title: 'Akazi ka reception (accessible office)', org: 'Kamonyi District', postedById: officer.id, createdAt: ago(8), detail: 'Umwanya ubereye abafite ubumuga bwo kugenda; ibiro biri hasi kandi byoroshye kugerwaho.' },
-    { kind: 'training', title: "Amahugurwa y'ikoranabuhanga", org: 'Inclusive Tech Rwanda', postedById: officer.id, createdAt: ago(12), detail: "Amahugurwa y'ibanze kuri mudasobwa, arimo screen readers ku batabona." },
-    { kind: 'announcement', title: 'District assistive-device assessment day', org: 'NCPD', postedById: officer.id, createdAt: ago(1), detail: 'Assessment team visits Runda sector office on Friday for new and replacement devices.' },
+  // The three real opportunities are open for applications and carry a
+  // closing date and a number of places; the announcement is information only,
+  // so it has nothing to apply to.
+  const [bursary, job, training] = await Opportunity.bulkCreate([
+    { kind: 'scholarship', title: "Bursary y'abanyeshuri bafite ubumuga", org: 'NCPD', postedById: officer.id, createdAt: ago(5), deadline: inDays(21), slots: 15, acceptsApplications: true, detail: "Buruse yuzuye ku mashuri y'imyuga, harimo n'ibikoresho by'ubufasha." },
+    { kind: 'job', title: 'Akazi ka reception (accessible office)', org: 'Kamonyi District', postedById: officer.id, createdAt: ago(8), deadline: inDays(10), slots: 2, acceptsApplications: true, detail: 'Umwanya ubereye abafite ubumuga bwo kugenda; ibiro biri hasi kandi byoroshye kugerwaho.' },
+    { kind: 'training', title: "Amahugurwa y'ikoranabuhanga", org: 'Inclusive Tech Rwanda', postedById: provider.id, createdAt: ago(12), deadline: inDays(30), slots: 25, acceptsApplications: true, detail: "Amahugurwa y'ibanze kuri mudasobwa, arimo screen readers ku batabona." },
+    { kind: 'announcement', title: 'District assistive-device assessment day', org: 'NCPD', postedById: officer.id, createdAt: ago(1), acceptsApplications: false, detail: 'Assessment team visits Runda sector office on Friday for new and replacement devices.' },
+  ], { returning: true });
+
+  // ── Applications: every status, and both origins ───────────
+  // B-1002 is the case the officer-mediated path exists for: no email on file,
+  // so a self-service-only system would never have reached him at all.
+  await OpportunityApplication.bulkCreate([
+    { opportunityId: bursary.id, beneficiaryId: B['B-1001'].id, origin: 'BENEFICIARY', submittedById: aliceUser.id, status: 'SUBMITTED', createdAt: ago(4), note: "Ndashaka gukomeza amashuri y'imyuga ariko sinshobora kwishyura." },
+    { opportunityId: bursary.id, beneficiaryId: B['B-1002'].id, origin: 'OFFICER', submittedById: officer.id, status: 'SHORTLISTED', createdAt: ago(4), decisionReason: 'Meets the criteria; invited to the district interview on the 12th.', decidedById: officer.id, decidedAt: ago(2), note: 'Applied at the sector office — no email or device at home.' },
+    { opportunityId: bursary.id, beneficiaryId: B['B-1005'].id, origin: 'BENEFICIARY', submittedById: josianeUser?.id || null, status: 'ACCEPTED', createdAt: ago(5), decisionReason: 'Awarded one of the 15 places; the bursary covers fees and an assistive device.', decidedById: officer.id, decidedAt: ago(1) },
+    { opportunityId: job.id, beneficiaryId: B['B-1001'].id, origin: 'BENEFICIARY', submittedById: aliceUser.id, status: 'DECLINED', createdAt: ago(7), decisionReason: 'The role requires on-screen data entry that the workplace cannot yet adapt; a training place has been suggested instead.', decidedById: officer.id, decidedAt: ago(3) },
+    { opportunityId: training.id, beneficiaryId: B['B-1004'].id, origin: 'OFFICER', submittedById: officer2.id, status: 'SUBMITTED', createdAt: ago(2), note: 'Applied on his behalf during a home visit.' },
+    { opportunityId: training.id, beneficiaryId: B['B-1003'].id, origin: 'BENEFICIARY', submittedById: null, status: 'WITHDRAWN', createdAt: ago(6) },
   ]);
 
   // ── Notifications (read and unread) ────────────────────────
@@ -247,6 +271,7 @@ async function main() {
     impairments: await Impairment.count(), users: await User.count(),
     requests: await SupportRequest.count(), events: await RequestEvent.count(),
     corrections: await Correction.count(), opportunities: await Opportunity.count(),
+    applications: await OpportunityApplication.count(),
     notifications: await Notification.count(), auditLog: await AuditLog.count(),
   };
   console.log('Seed complete:', counts);

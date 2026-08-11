@@ -11,7 +11,7 @@ export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t) =>
   t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
 
-export async function api(path, { method = 'GET', body, headers = {} } = {}) {
+export async function api(path, { method = 'GET', body, headers = {}, withMeta = false } = {}) {
   let res;
   try {
     res = await fetch(BASE + path, {
@@ -36,10 +36,20 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
     err.data = data;
     throw err;
   }
+  // Paged endpoints answer with the page as the body and the full match count
+  // in X-Total-Count, so a list can say "showing 25 of 2,431" without a second
+  // request. The header is absent on unpaged endpoints; fall back to the
+  // length of what actually arrived rather than reporting zero.
+  if (withMeta) {
+    const header = res.headers.get('X-Total-Count');
+    const total = header !== null && header !== '' ? Number(header) : (Array.isArray(data) ? data.length : 0);
+    return { rows: data, total: Number.isFinite(total) ? total : 0 };
+  }
   return data;
 }
 
 export const get = (p) => api(p);
+export const getList = (p) => api(p, { withMeta: true });
 export const post = (p, body) => api(p, { method: 'POST', body });
 export const patch = (p, body) => api(p, { method: 'PATCH', body });
 export const del = (p) => api(p, { method: 'DELETE' });

@@ -9,6 +9,7 @@ import { AppError } from './registry.service.js';
 import { sendResetToken } from './notify.js';
 
 const SECRET = process.env.JWT_SECRET || 'change-me';
+export const MIN_PASSWORD = 8;
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const sign = (u) => jwt.sign({ sub: u.id, role: u.role }, SECRET, { expiresIn: '7d' });
 const pub = (u) => ({ id: u.id, fullName: u.fullName, email: u.email, role: u.role, sector: u.sector, beneficiaryId: u.beneficiaryId, providerId: u.providerId, language: u.language });
@@ -23,7 +24,7 @@ export async function login({ email, password }) {
 // Beneficiaries receive a temporary password by email at registration
 // and should change it on first use.
 export async function changePassword(user, { currentPassword, newPassword }) {
-  if (!newPassword || newPassword.length < 8) throw new AppError(400, 'New password must be at least 8 characters');
+  if (!newPassword || newPassword.length < MIN_PASSWORD) throw new AppError(400, `New password must be at least ${MIN_PASSWORD} characters`);
   const fresh = await User.findByPk(user.id);
   if (!(await bcrypt.compare(currentPassword || '', fresh.passwordHash))) throw new AppError(401, 'Current password is incorrect');
   await fresh.update({ passwordHash: await bcrypt.hash(newPassword, 10) });
@@ -41,6 +42,11 @@ export async function forgotPassword({ email }) {
 
 export async function resetPassword({ token, password }) {
   if (!token || !password) throw new AppError(400, 'Token and new password are required');
+  // The same minimum as changePassword and createUser. Without it the reset
+  // path was a way round the rule the rest of the system enforces — and it is
+  // the path used by someone who has just lost access, so it is precisely the
+  // moment a one-character password gets chosen.
+  if (password.length < MIN_PASSWORD) throw new AppError(400, `New password must be at least ${MIN_PASSWORD} characters`);
   const user = await User.findOne({ where: { resetTokenHash: sha256(token) } });
   if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) throw new AppError(400, 'Invalid or expired reset token');
   await user.update({ passwordHash: await bcrypt.hash(password, 10), resetTokenHash: null, resetTokenExpiry: null });
