@@ -690,8 +690,11 @@ const login = async (email, password = 'password123') => {
     await call('/me/password', { method: 'POST', token: recovered, body: { currentPassword: 'recovered123', newPassword: 'password123' } });
     check('Demo account restored to its seeded password', !!(await login('alice@beneficiary.rw', 'password123')));
   } else {
-    check('Reset code returned in development for the round-trip test', false,
-      'set NODE_ENV=development on the API to exercise the full reset flow');
+    // Against a production API this is the CORRECT behaviour, not a failure:
+    // devResetToken is withheld so the endpoint cannot be used to harvest a
+    // working reset code for somebody else's account. The round trip is
+    // exercised locally instead.
+    results.push('  SKIP  Reset round trip — the API withholds the dev reset code (correct in production)');
   }
 
   // ── SUMMARY ────────────────────────────────────────────────

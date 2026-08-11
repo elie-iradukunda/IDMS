@@ -27,6 +27,16 @@ async function isEmpty() {
 (async () => {
   await sequelize.authenticate();
 
+  // Escape hatch for restoring a demonstration instance to a known state.
+  // It is deliberately awkward: it must be spelled out in full, it refuses to
+  // act unless the deployment is explicitly marked as a demo, and it announces
+  // itself loudly — because what it does is drop every table.
+  if (process.env.SEED_FORCE === 'yes-drop-everything' && process.env.DEMO_INSTANCE === 'true') {
+    console.warn('[seed-if-empty] SEED_FORCE set on a DEMO_INSTANCE — dropping all data and reloading the demo dataset.');
+    await import('./seed.js');
+    return;
+  }
+
   if (!(await isEmpty())) {
     const users = await User.count();
     console.log(`[seed-if-empty] ${users} user account(s) already present — leaving the database untouched.`);
