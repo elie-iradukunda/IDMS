@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "seed:if-empty": "node src/seed-if-empty.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
