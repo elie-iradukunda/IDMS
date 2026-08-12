@@ -131,6 +131,37 @@ places**, and an **Apply** action, and it works the same way a support request d
 
 An *announcement* is information to read, so it has nothing to apply to and says so.
 
+## Reports — Excel and PDF, for every role
+The numbers here end up in a monthly return, a council paper or a case file,
+and none of those live inside the app. Every role has a **Reports & exports**
+page offering the reports it is entitled to, in two formats generated on the
+server from a single description — so the two can never drift apart:
+
+- **Excel (.xlsx)** — a *Summary* sheet first, then one sheet per dataset, with
+  a branded title block, a frozen header row, auto-filter, sensible column
+  widths, wrapped prose, banded rows and a print footer.
+- **PDF** — the IDS mark drawn as vectors, a cover block, at-a-glance panels,
+  tables with repeating headers, landscape for wide datasets, and *Page n of m*.
+
+| Role | Reports |
+|---|---|
+| **Beneficiary** | Their own record and support history — a printable statement of everything held about them, with every decision and its recorded reason |
+| **Officer** | Registry · support requests and decisions · correction requests · opportunities and applications |
+| **Provider** | Their own offers · recorded needs matching their search (**by code only** — no names) |
+| **Admin** | District coverage report · registry oversight (**no national IDs**) · users and organisations · opportunities · audit log |
+
+Scoping is the security story: the catalogue is filtered by role, and each
+report re-derives its scope from the signed-in user rather than trusting a
+query parameter. The oversight export withholds national IDs exactly as the
+oversight screen does — an export must not become the side door round a
+restriction. Every file carries the Law No. 058/2021 confidentiality notice.
+
+Downloads are fetched with the `Authorization` header rather than a token in
+the URL, and arrive base64-wrapped in JSON: Edge's PDF handler claims any
+response body beginning `%PDF`, even one being read by `fetch()`, which made
+PDF reports save as 0-byte files. Scripts can still take the raw stream from
+`GET /api/reports/:key/pdf`.
+
 ## Scale & reporting
 The registry is measured against a district population of ~2,400, so the registry,
 oversight and audit lists **page in the database** rather than rendering every row: the
@@ -145,16 +176,18 @@ With the backend running and the database seeded:
 
 ```bash
 npm run seed          # reset to known demo data
-npm run test:api      # 206 checks — RBAC, CRUD, validation, workflow, reports,
-                      #              pagination, applications, password recovery
+npm run test:api      # 243 checks — RBAC, CRUD, validation, workflow, metrics,
+                      #              pagination, applications, password recovery,
+                      #              and every report generating as a real file
 npm run test:ui       # 97 checks — drives the real SPA in Microsoft Edge:
                       #             every screen, dialog, a11y and keyboard path
-npm run test:nav      # 78 checks — every route for every role, the guards that
-                      #             keep each role out of the others, and full
-                      #             create → table → update → delete round trips
-                      #             driven entirely through the browser
+npm run test:nav      # 105 checks — every route for every role, the guards that
+                      #              keep each role out of the others, full
+                      #              create → table → update → delete round trips,
+                      #              and Excel/PDF downloads landing on disk —
+                      #              all driven through the browser
 npm run test:mail     # triggers all 10 notification paths against the live mailer
-npm test              # seed + api + ui + nav (381 checks)
+npm test              # seed + api + ui + nav (445 checks)
 ```
 
 Both suites honour `IDS_TEST_URL` (default `http://127.0.0.1:4000`), so they can be
