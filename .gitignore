@@ -24,3 +24,4 @@ Thumbs.db
 
 # Screenshots produced by the end-to-end suites.
 tests/screenshots/
+tests/screenshots/

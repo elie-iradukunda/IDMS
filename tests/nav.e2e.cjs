@@ -41,6 +41,7 @@ const ROUTES = {
       ['/officer/requests', /request\(s\)|no support requests/i],
       ['/officer/corrections', /correction/i],
       ['/officer/publish', /published opportunities/i],
+      ['/officer/reports', /reports & exports/i],
       ['/officer/account', /my account/i],
     ],
     forbidden: ['/admin/users', '/provider/search', '/beneficiary/profile'],
@@ -53,6 +54,7 @@ const ROUTES = {
       ['/beneficiary/support', /request support/i],
       ['/beneficiary/opportunities', /opportunity\/ies|no opportunities/i],
       ['/beneficiary/messages', /message|mark all read/i],
+      ['/beneficiary/reports', /reports & exports/i],
       ['/beneficiary/account', /my account/i],
     ],
     forbidden: ['/officer/registry', '/admin/reports', '/provider/offers'],
@@ -64,6 +66,7 @@ const ROUTES = {
       ['/provider/search', /recorded need|no matching beneficiaries/i],
       ['/provider/offers', /offer/i],
       ['/provider/publish', /published opportunities/i],
+      ['/provider/reports', /reports & exports/i],
       ['/provider/account', /my account/i],
     ],
     forbidden: ['/officer/registry', '/admin/audit', '/beneficiary/messages'],
@@ -78,6 +81,7 @@ const ROUTES = {
       ['/admin/providers', /organisation/i],
       ['/admin/announcement', /announcement|opportunit/i],
       ['/admin/audit', /audit log/i],
+      ['/admin/exports', /reports & exports/i],
       ['/admin/account', /my account/i],
     ],
     forbidden: ['/officer/registry', '/provider/search', '/beneficiary/profile'],
@@ -442,9 +446,71 @@ const ROUTES = {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // 8b · REPORTS — real Excel and PDF files, from the browser
+  // A report that generates on the server but never reaches the user's disk
+  // is a report nobody has. This drives the actual buttons and checks that a
+  // file lands, with the right extension and a plausible size.
+  // ═══════════════════════════════════════════════════════════
+  section('REPORTS — EXCEL & PDF');
+  for (const [role, path, expectMin] of [
+    ['ADMIN', '/admin/exports', 2],
+    ['OFFICER', '/officer/reports', 3],
+    ['BENEFICIARY', '/beneficiary/reports', 1],
+    ['PROVIDER', '/provider/reports', 2],
+  ]) {
+    await login(ROUTES[role].email);
+    await goto(path);
+    const cards = await page.locator('button', { hasText: 'Excel (.xlsx)' }).count();
+    check(`${role} is offered ${expectMin}+ downloadable reports`, cards >= expectMin, `${cards} shown`);
+
+    for (const [label, ext] of [['Excel (.xlsx)', 'xlsx'], ['PDF', 'pdf']]) {
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 30000 }).catch(() => null),
+        page.locator('button', { hasText: label }).first().click(),
+      ]);
+      const name = download?.suggestedFilename() || '';
+      let bytes = 0;
+      if (download) {
+        const p = await download.path();
+        if (p) bytes = require('fs').statSync(p).size;
+      }
+      check(`${role} downloads a ${ext.toUpperCase()} report`,
+        !!download && name.endsWith(`.${ext}`) && name.startsWith('IDS-') && bytes > 2000,
+        `${name || 'no download'} (${bytes} bytes)`);
+      await page.waitForTimeout(600);
+    }
+
+    // Preview before committing to a download.
+    await page.locator('button', { hasText: 'Preview' }).first().click();
+    await page.waitForSelector('[role="dialog"]', { timeout: 15000 });
+    const dlgText = await page.locator('[role="dialog"]').innerText();
+    check(`${role} can preview a report before downloading it`, /row\(s\)/i.test(dlgText));
+    check(`${role} preview states the confidentiality obligation`, /058\/2021/.test(dlgText));
+    await shot(`reports-${role.toLowerCase()}`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  }
+
+  // A beneficiary's report is about them, and offers nothing else. Read the
+  // report cards specifically — the surrounding layout copy mentions the
+  // registry, so scanning the whole page would test the wrong text.
+  await login(ROUTES.BENEFICIARY.email);
+  await goto('/beneficiary/reports');
+  const benCards = await page.locator('.card').allInnerTexts();
+  const offered = benCards.join('\n');
+  check('The beneficiary report is their own record and history',
+    /my record and support history/i.test(offered));
+  check('The beneficiary is offered exactly one report — their own',
+    (await page.locator('button', { hasText: 'Excel (.xlsx)' }).count()) === 1);
+  check('The beneficiary is offered no registry-wide or audit export',
+    !/beneficiary registry|audit log|district coverage/i.test(offered),
+    offered.slice(0, 120).replace(/\n/g, ' '));
+
+  // ═══════════════════════════════════════════════════════════
   // 8 · CSV EXPORT — the district return has to leave the app
   // ═══════════════════════════════════════════════════════════
   section('EXPORTS');
+  await login(ROUTES.ADMIN.email);   // the reports sweep above ended as a beneficiary
   for (const [route, label] of [['/admin/registry', 'Export page (CSV)'], ['/admin/audit', 'Export this page (CSV)'], ['/admin/reports', 'Export report (CSV)']]) {
     await goto(route);
     const [download] = await Promise.all([

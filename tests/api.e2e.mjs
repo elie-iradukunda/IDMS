@@ -643,6 +643,143 @@ const login = async (email, password = 'password123') => {
   check('Unread count is closed to other roles',
     (await call('/my/notifications/unread-count', { token: officer })).status === 403);
 
+  // ── REPORTS & EXPORTS ──────────────────────────────────────
+  // The numbers here end up in a monthly return, a council paper or a case
+  // file, none of which live inside the app. What matters is that the files
+  // are real (a browser must actually open them), that each role gets only
+  // what it may lawfully read, and that an export never becomes the side door
+  // for data the screen deliberately withholds.
+  section('REPORTS & EXPORTS');
+
+  // Binary-aware fetch: the download bodies are not JSON.
+  const grab = async (path, token) => {
+    const res = await fetch(BASE + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const buf = Buffer.from(await res.arrayBuffer());
+    return {
+      status: res.status,
+      type: res.headers.get('Content-Type') || '',
+      disposition: res.headers.get('Content-Disposition') || '',
+      buf,
+    };
+  };
+  const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  // A .xlsx is a zip ("PK"); a .pdf begins "%PDF".
+  const isXlsx = (b) => b.length > 2000 && b[0] === 0x50 && b[1] === 0x4b;
+  const isPdf = (b) => b.slice(0, 4).toString() === '%PDF';
+
+  const catalogues = {};
+  for (const [role, token] of [['OFFICER', officer], ['BENEFICIARY', beneficiary], ['PROVIDER', provider], ['ADMIN', admin]]) {
+    const c = await call('/reports', { token });
+    catalogues[role] = (c.data?.reports || []).map((r) => r.key);
+    check(`${role} is offered a report catalogue`, c.status === 200 && catalogues[role].length > 0, catalogues[role].join(','));
+    check(`${role} catalogue entries describe themselves`,
+      (c.data?.reports || []).every((r) => r.title && r.description));
+  }
+  check('A beneficiary is offered only their own record report',
+    catalogues.BENEFICIARY.length === 1 && catalogues.BENEFICIARY[0] === 'beneficiary-record');
+  check('A provider is never offered the registry',
+    !catalogues.PROVIDER.some((k) => k.includes('registry')), catalogues.PROVIDER.join(','));
+  check('Only the administrator is offered the audit log',
+    catalogues.ADMIN.includes('admin-audit')
+      && !['OFFICER', 'PROVIDER', 'BENEFICIARY'].some((r) => catalogues[r].includes('admin-audit')));
+
+  // Every report in every catalogue must actually generate, in both formats.
+  let generated = 0;
+  let formatFailures = [];
+  for (const [role, token] of [['OFFICER', officer], ['BENEFICIARY', beneficiary], ['PROVIDER', provider], ['ADMIN', admin]]) {
+    for (const key of catalogues[role]) {
+      const x = await grab(`/reports/${key}/xlsx`, token);
+      const p = await grab(`/reports/${key}/pdf`, token);
+      if (!(x.status === 200 && isXlsx(x.buf) && x.type === XLSX_MIME)) formatFailures.push(`${role}/${key}.xlsx`);
+      if (!(p.status === 200 && isPdf(p.buf) && p.type === 'application/pdf')) formatFailures.push(`${role}/${key}.pdf`);
+      generated += 2;
+    }
+  }
+  check(`Every report in every role's catalogue generates as a real file (${generated} files)`,
+    formatFailures.length === 0, formatFailures.join(', '));
+
+  // The browser fetches reports base64-wrapped in JSON: Edge's PDF extension
+  // claims any response body beginning "%PDF", even one being read by fetch(),
+  // which made PDF reports save as 0-byte files. The bytes must survive the
+  // round trip unchanged.
+  const wrapped = await call('/reports/district-summary/download?format=pdf&encoding=base64', { token: admin });
+  const rawPdf = await grab('/reports/district-summary/pdf', admin);
+  check('A report can be fetched base64-wrapped for the browser',
+    wrapped.status === 200 && !!wrapped.data?.data && wrapped.data.mime === 'application/pdf');
+  check('The wrapped bytes decode to the identical PDF',
+    Buffer.from(wrapped.data.data, 'base64').slice(0, 4).toString() === '%PDF'
+      && Buffer.from(wrapped.data.data, 'base64').length === wrapped.data.size,
+    `${wrapped.data?.size} vs raw ${rawPdf.buf.length}`);
+  check('The wrapped payload names the file', /^IDS-district-summary-\d{4}-\d{2}-\d{2}\.pdf$/.test(wrapped.data?.filename || ''),
+    wrapped.data?.filename);
+  const wrappedXlsx = await call('/reports/officer-registry/download?format=xlsx&encoding=base64', { token: officer });
+  check('The wrapped Excel decodes to a real workbook',
+    Buffer.from(wrappedXlsx.data.data, 'base64').slice(0, 2).toString() === 'PK');
+  check('The query-parameter download route enforces the same permissions',
+    (await call('/reports/admin-audit/download?format=pdf&encoding=base64', { token: officer })).status === 403);
+
+  const summaryXlsx = await grab('/reports/district-summary/xlsx', admin);
+  check('An export is named for download', /filename="IDS-district-summary-\d{4}-\d{2}-\d{2}\.xlsx"/.test(summaryXlsx.disposition),
+    summaryXlsx.disposition);
+  check('The filename header is exposed to the browser',
+    /Content-Disposition/i.test((await fetch(`${BASE}/reports/district-summary/xlsx`, { headers: { Authorization: `Bearer ${admin}` } }))
+      .headers.get('Access-Control-Expose-Headers') || ''));
+
+  // Personal data must not sit in a shared cache.
+  const cacheHeader = (await fetch(`${BASE}/reports/officer-registry/pdf`, { headers: { Authorization: `Bearer ${officer}` } }))
+    .headers.get('Cache-Control');
+  check('Reports are marked no-store', /no-store/.test(cacheHeader || ''), cacheHeader);
+
+  // ── Report RBAC ──
+  check('A beneficiary cannot export the registry',
+    (await grab('/reports/admin-registry/xlsx', beneficiary)).status === 403);
+  check('A provider cannot export the registry',
+    (await grab('/reports/officer-registry/xlsx', provider)).status === 403);
+  check('An officer cannot export the audit log',
+    (await grab('/reports/admin-audit/xlsx', officer)).status === 403);
+  check('A provider cannot export the district summary',
+    (await grab('/reports/district-summary/pdf', provider)).status === 403);
+  check('An unknown report is a 404', (await grab('/reports/nope/xlsx', admin)).status === 404);
+  check('An unsupported format is refused', (await grab('/reports/district-summary/docx', admin)).status === 400);
+  check('Reports require authentication', (await grab('/reports/district-summary/xlsx', null)).status === 401);
+
+  // ── What is inside the file ──
+  const preview = await call('/reports/district-summary/preview', { token: admin });
+  check('A report can be previewed before it is downloaded',
+    preview.status === 200 && preview.data?.sheets?.length >= 4, `${preview.data?.sheets?.length} sheets`);
+  check('The preview carries at-a-glance figures', (preview.data?.summary || []).length > 0);
+  check('The preview samples rows without shipping the whole dataset',
+    preview.data.sheets.every((s) => s.sample.length <= 5 && s.rowCount >= s.sample.length));
+
+  const registryPreview = await call('/reports/officer-registry/preview', { token: officer });
+  const oversightPreview = await call('/reports/admin-registry/preview', { token: admin });
+  const cols = (p) => p.data.sheets[0].columns.map((c) => c.toLowerCase());
+  check("The officer's registry export includes the national ID they already see",
+    cols(registryPreview).some((c) => c.includes('national id')));
+  // The oversight screen withholds national IDs, so its export must too —
+  // otherwise the export is the side door round the restriction.
+  check('The oversight export withholds national IDs, as the screen does',
+    !cols(oversightPreview).some((c) => c.includes('national id')), cols(oversightPreview).join(','));
+
+  const providerPreview = await call('/reports/provider-needs/preview', { token: provider });
+  check('A provider export identifies beneficiaries by code only',
+    !cols(providerPreview).some((c) => c.includes('name') || c.includes('national')),
+    cols(providerPreview).join(','));
+
+  const minePreview = await call('/reports/beneficiary-record/preview', { token: beneficiary });
+  check('A beneficiary report is about that beneficiary',
+    minePreview.status === 200 && /B-1001/.test(minePreview.data?.subtitle || ''), minePreview.data?.subtitle);
+  check('The personal report separates impairment, daily challenges and support needs',
+    (minePreview.data?.narrative || []).length === 3);
+
+  // ── Filters reach the export ──
+  const all = await call('/reports/officer-registry/preview', { token: officer });
+  const runda = await call('/reports/officer-registry/preview?sector=Runda', { token: officer });
+  check('A filter narrows the exported dataset',
+    runda.data.sheets[0].rowCount > 0 && runda.data.sheets[0].rowCount < all.data.sheets[0].rowCount,
+    `${runda.data.sheets[0].rowCount} of ${all.data.sheets[0].rowCount}`);
+  check('The filter is stated on the report itself', /Runda/.test(runda.data.subtitle || ''), runda.data.subtitle);
+
   // ── ACCOUNT SELF-SERVICE ───────────────────────────────────
   section('ACCOUNT SELF-SERVICE');
   const lang = await call('/me/language', { method: 'POST', token: beneficiary, body: { language: 'rw' } });

@@ -6,10 +6,14 @@ import { Router } from 'express';
 import { authenticate, authorize } from './middleware/auth.js';
 import * as auth from './services/auth.service.js';
 import * as registry from './services/registry.service.js';
+import { AppError } from './services/registry.service.js';
 import * as support from './services/support.service.js';
 import * as reports from './services/reports.service.js';
 import * as admin from './services/admin.service.js';
 import * as applications from './services/application.service.js';
+import * as reporting from './services/report.service.js';
+import { renderXlsx } from './services/report.xlsx.js';
+import { renderPdf } from './services/report.pdf.js';
 
 export const router = Router();
 const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).then((d) => res.json(d)).catch(next);
@@ -33,6 +37,81 @@ router.get ('/me',              h((req) => ({ id: req.user.id, fullName: req.use
 router.post('/me/password',     h((req) => auth.changePassword(req.user, req.body)));
 router.post('/me/language',     h((req) => auth.setLanguage(req.user, req.body.language)));
 router.get ('/opportunities',   h(() => reports.listOpportunities()));
+
+// ── Reports ──────────────────────────────────────────────────
+// Every role can export what it is entitled to see, and only that: the
+// catalogue is filtered by role and each builder re-derives its own scope
+// from the authenticated user rather than trusting a query parameter.
+router.get('/reports', h((req) => ({ reports: reporting.catalogue(req.user) })));
+
+// Preview the report on screen before committing to a download — a 4,000-row
+// audit export is a slow thing to discover you did not want.
+router.get('/reports/:key/preview', h(async (req) => {
+  const r = await reporting.build(req.user, req.params.key, req.query);
+  return {
+    key: r.key, title: r.title, subtitle: r.subtitle, description: r.description,
+    generatedAt: r.generatedAt, generatedBy: r.generatedBy,
+    meta: r.meta || [], narrative: r.narrative || [], summary: r.summary || [], notes: r.notes || [],
+    sheets: r.sheets.map((s) => ({
+      name: s.name,
+      columns: s.columns.map((c) => c.header),
+      rowCount: s.rows.length,
+      // Enough to see the shape of it without shipping the whole dataset twice.
+      sample: s.rows.slice(0, 5).map((row) => s.columns.map((c) => {
+        const v = row[c.key];
+        return v === null || v === undefined ? '' : String(v);
+      })),
+    })),
+  };
+}));
+
+// Two shapes for the same download. `/reports/:key/pdf` reads well for an API
+// consumer, but Edge's bundled PDF extension intercepts requests whose URL
+// ends in that segment — even ones issued by fetch() — swallowing the body and
+// leaving the page with an empty 204. The browser therefore asks by query
+// parameter instead, where no extension is watching.
+const downloadReport = async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const format = req.params.format || req.query.format;
+    if (!['xlsx', 'pdf'].includes(format)) throw new AppError(400, 'Format must be xlsx or pdf');
+
+    const report = await reporting.build(req.user, key, req.query);
+    const filename = reporting.reportFilename(key, format);
+    const body = format === 'xlsx' ? await renderXlsx(report) : await renderPdf(report);
+
+    const mime = format === 'xlsx'
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'application/pdf';
+
+    // Edge's bundled PDF handler claims any response whose body begins "%PDF"
+    // — even one being read by fetch(), and even with Content-Type
+    // application/octet-stream and X-Content-Type-Options: nosniff. The plugin
+    // takes the body and the page is left holding an empty 204, so a PDF
+    // report saved as a 0-byte file. Wrapping the bytes in JSON puts them
+    // somewhere no content handler is looking; the browser rebuilds the blob
+    // and names the file itself. Direct API consumers keep the raw stream.
+    if (req.query.encoding === 'base64') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ filename, mime, size: Buffer.byteLength(body), data: Buffer.from(body).toString('base64') });
+    }
+
+    res.setHeader('Content-Type', mime);
+    res.setHeader('X-Report-Filename', filename);
+    // The filename travels in the header, so the browser must be allowed to
+    // read it back when the download is fetched with an Authorization header.
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Report-Filename, X-Total-Count');
+    res.setHeader('Content-Length', Buffer.byteLength(body));
+    res.setHeader('Cache-Control', 'no-store');   // it contains personal data
+    return res.end(Buffer.from(body));
+  } catch (e) {
+    next(e);
+  }
+};
+
+router.get('/reports/:key/download', downloadReport);   // ?format=xlsx|pdf — used by the web app
+router.get('/reports/:key/:format', downloadReport);    // /xlsx | /pdf     — convenient for scripts
 
 // ── Officer ──────────────────────────────────────────────────
 const asOfficer = authorize('OFFICER');

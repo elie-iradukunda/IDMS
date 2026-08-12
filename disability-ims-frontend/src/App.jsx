@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import AccountPage from './pages/AccountPage.jsx';
+import ReportsExportPage from './pages/ReportsPage.jsx';
 
 import OfficerLayout from './pages/officer/OfficerLayout.jsx';
 import OfficerOverviewPage from './pages/officer/OverviewPage.jsx';
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="requests" element={<SupportRequestsPage />} />
           <Route path="corrections" element={<CorrectionsPage />} />
           <Route path="publish" element={<OfficerPublishPage />} />
+          <Route path="reports" element={<ReportsExportPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
@@ -72,6 +74,7 @@ export default function App() {
           <Route path="support" element={<MySupportPage />} />
           <Route path="opportunities" element={<OpportunitiesPage />} />
           <Route path="messages" element={<MessagesPage />} />
+          <Route path="reports" element={<ReportsExportPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
@@ -83,6 +86,7 @@ export default function App() {
           <Route path="search" element={<ProviderSearchPage />} />
           <Route path="offers" element={<ProviderOffersPage />} />
           <Route path="publish" element={<ProviderPublishPage />} />
+          <Route path="reports" element={<ReportsExportPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
@@ -97,6 +101,7 @@ export default function App() {
           <Route path="providers" element={<ProvidersPage />} />
           <Route path="announcement" element={<AnnouncementPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="exports" element={<ReportsExportPage />} />
           <Route path="account" element={<AccountPage />} />
         </Route>
       </Route>
