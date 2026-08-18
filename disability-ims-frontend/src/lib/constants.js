@@ -1,9 +1,9 @@
 // Role metadata, keyed by the backend's UPPERCASE role names.
 export const ROLES = {
-  OFFICER:     { key: 'officer',     email: 'officer@kamonyi.gov.rw',  color: 'var(--sky-700)', bg: 'var(--sky-soft)',    ico: '🧑‍💼', home: '/officer' },
-  BENEFICIARY: { key: 'beneficiary', email: 'alice@beneficiary.rw',    color: 'var(--green)',   bg: 'var(--green-soft)',  ico: '🧑‍🦯', home: '/beneficiary' },
-  PROVIDER:    { key: 'provider',    email: 'provider@ngo.rw',         color: 'var(--amber)',   bg: 'var(--amber-soft)',  ico: '🤝',  home: '/provider' },
-  ADMIN:       { key: 'admin',       email: 'admin@disability.gov.rw', color: 'var(--violet)',  bg: 'var(--violet-soft)', ico: '🛡️', home: '/admin' },
+  OFFICER:     { key: 'officer',     title: 'Local Officer',          email: 'nzeyimanavicent1@gmail.com',  color: 'var(--sky-700)', bg: '#e0f2fe', ico: '🧑‍💼', home: '/officer' },
+  BENEFICIARY: { key: 'beneficiary', title: 'Beneficiary / Guardian', email: 'elieiradukunda2030@gmail.com', color: 'var(--green)',   bg: '#dcfce7', ico: '🧑‍🦯', home: '/beneficiary' },
+  PROVIDER:    { key: 'provider',    title: 'Support Provider',       email: 'kamikazi20009@gmail.com',     color: 'var(--amber)',   bg: '#fef3c7', ico: '🤝',  home: '/provider' },
+  ADMIN:       { key: 'admin',       title: 'Administrator',          email: 'iradukundaelie71@gmail.com',  color: 'var(--violet)',  bg: '#ede9fe', ico: '🛡️', home: '/admin' },
 };
 
 // Demo accounts shown on the login screen (all use password123 after seeding).

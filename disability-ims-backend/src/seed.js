@@ -34,8 +34,8 @@ async function main() {
   const pw = await bcrypt.hash('password123', 10);
 
   // ── Provider organisations ─────────────────────────────────
-  const ngo = await Provider.create({ name: 'Inclusive Hands NGO', type: 'NGO', contact: 'provider@ngo.rw' });
-  const coop = await Provider.create({ name: 'Kamonyi Artisans Cooperative', type: 'Cooperative', contact: 'coop@kamonyi.rw' });
+  const ngo = await Provider.create({ name: 'Kami Support NGO', type: 'NGO', contact: 'kamikazi20009@gmail.com' });
+  const coop = await Provider.create({ name: 'Kamonyi Artisans Cooperative', type: 'Cooperative', contact: 'kamikazi20009@gmail.com' });
   const donor = await Provider.create({ name: 'Rwanda Assistive Devices Fund', type: 'Donor', contact: 'fund@radf.rw' });
 
   // ── Beneficiaries ──────────────────────────────────────────
@@ -48,8 +48,8 @@ async function main() {
   };
 
   await mk('B-1001', {
-    fullName: 'Mukamana Alice', nationalId: '1198870...4021', sector: 'Runda', cell: 'Kabuga', village: 'Nyakabungo',
-    email: 'alice@beneficiary.rw', createdAt: ago(45),
+    fullName: 'Elie Iradukunda', nationalId: '1199880012345021', sector: 'Runda', cell: 'Kabuga', village: 'Nyakabungo',
+    email: 'elieiradukunda2030@gmail.com', createdAt: ago(45),
     dailyChallenges: 'Ntashobora gusoma inyandiko; akeneye uwamuyobora mu nzira nshya.',
     supportNeeds: "Inkoni y'abatabona (white cane) n'amahugurwa yo kugenda.",
   }, [{ type: 'seeing', level: 'alot' }]);
@@ -79,8 +79,8 @@ async function main() {
 
   // Multiple impairments — the record must describe a person, not a category.
   await mk('B-1005', {
-    fullName: 'Nyirahabimana Josiane', nationalId: '1198340...5567', sector: 'Nyarubaka', cell: 'Mataba', village: 'Rugarama',
-    email: 'josiane@beneficiary.rw', createdAt: ago(22),
+    fullName: 'UWINEZA Josianne', nationalId: '1199980055678901', sector: 'Nyarubaka', cell: 'Mataba', village: 'Rugarama',
+    email: 'uwinezajosianne04@gmail.com', createdAt: ago(22),
     dailyChallenges: 'Ntabona neza kandi ntumva neza; ntashobora kwiyitaho wenyine mu gitondo.',
     supportNeeds: 'Ubufasha bwo kwitaho bwa buri munsi, hamwe n\'igikoresho cyo kumva.',
   }, [
@@ -100,7 +100,7 @@ async function main() {
   // Near-duplicate of B-1001 by name+sector: the duplication metric and the
   // officer's duplicate warning both need a real case to detect.
   await mk('B-1007', {
-    fullName: 'Mukamana Alice', nationalId: '1198870...9982', sector: 'Runda', cell: 'Kabuga', village: 'Gasharu',
+    fullName: 'Elie Iradukunda', nationalId: '1199880012345999', sector: 'Runda', cell: 'Kabuga', village: 'Gasharu',
     createdAt: ago(12),
     dailyChallenges: 'Ingorane zo kubona mu ijoro.',
     supportNeeds: 'Isuzuma ry\'amaso.',
@@ -123,24 +123,18 @@ async function main() {
   }, [{ type: 'cognition', level: 'some' }]);
 
   // ── Users ──────────────────────────────────────────────────
-  // A district-wide officer has no sector, which is how the rest of the system
-  // spells it (the user admin offers "District-wide" as the empty option, and
-  // correction routing falls through to any active officer). Putting the
-  // district's own name in the sector column made this officer scoped to a
-  // sector that does not exist, so every sector-filtered count read zero.
-  const officer = await User.create({ fullName: 'Officer Uwimana', email: 'officer@kamonyi.gov.rw', role: 'OFFICER', sector: null, passwordHash: pw });
+  const officer = await User.create({ fullName: 'NZEYIMANA Vicent', email: 'nzeyimanavicent1@gmail.com', role: 'OFFICER', sector: null, passwordHash: pw });
   const officer2 = await User.create({ fullName: 'Officer Mukandayisenga', email: 'officer2@kamonyi.gov.rw', role: 'OFFICER', sector: 'Musambira', passwordHash: pw });
-  // A deactivated account: status ENUM needs a real case, and login must refuse it.
   await User.create({ fullName: 'Officer Ndayisaba (retired)', email: 'officer.retired@kamonyi.gov.rw', role: 'OFFICER', sector: 'Runda', status: 'INACTIVE', passwordHash: pw });
 
-  const aliceUser = await User.create({ fullName: 'Mukamana Alice', email: 'alice@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1001'].id, passwordHash: pw });
+  const aliceUser = await User.create({ fullName: 'Elie Iradukunda', email: 'elieiradukunda2030@gmail.com', role: 'BENEFICIARY', beneficiaryId: B['B-1001'].id, passwordHash: pw });
   await User.create({ fullName: 'Uwase Claudine', email: 'claudine@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1003'].id, passwordHash: pw });
   await User.create({ fullName: 'Nsengimana Eric', email: 'eric@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1004'].id, passwordHash: pw });
-  const josianeUser = await User.create({ fullName: 'Nyirahabimana Josiane', email: 'josiane@beneficiary.rw', role: 'BENEFICIARY', beneficiaryId: B['B-1005'].id, passwordHash: pw });
+  const josianeUser = await User.create({ fullName: 'UWINEZA Josianne', email: 'uwinezajosianne04@gmail.com', role: 'BENEFICIARY', beneficiaryId: B['B-1005'].id, passwordHash: pw });
 
-  const provider = await User.create({ fullName: 'Inclusive Hands NGO', email: 'provider@ngo.rw', role: 'PROVIDER', providerId: ngo.id, passwordHash: pw });
+  const provider = await User.create({ fullName: 'kami (Kami Support NGO)', email: 'kamikazi20009@gmail.com', role: 'PROVIDER', providerId: ngo.id, passwordHash: pw });
   await User.create({ fullName: 'Kamonyi Artisans Cooperative', email: 'coop@kamonyi.rw', role: 'PROVIDER', providerId: coop.id, passwordHash: pw });
-  await User.create({ fullName: 'System Admin', email: 'admin@disability.gov.rw', role: 'ADMIN', passwordHash: pw });
+  await User.create({ fullName: 'Elie Iradukunda (Admin)', email: 'iradukundaelie71@gmail.com', role: 'ADMIN', passwordHash: pw });
 
   // Every beneficiary record carries the officer who registered it, so a
   // correction request has a real person to route to.

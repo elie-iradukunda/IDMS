@@ -17,8 +17,9 @@ import nodemailer from 'nodemailer';
 import 'dotenv/config';
 
 // ── Transport ────────────────────────────────────────────────
+// MAIL_PROVIDER=brevo  → Brevo REST API (Transaction Email via BREVO_API_KEY).
 // MAIL_PROVIDER=gmail  → Gmail with an App Password (2FA accounts).
-// MAIL_PROVIDER=smtp   → any generic SMTP host.
+// MAIL_PROVIDER=smtp   → any generic SMTP host (e.g. Brevo SMTP: smtp-relay.brevo.com).
 // unset / no credentials → dev mode: emails are logged, not sent.
 const PROVIDER = (process.env.MAIL_PROVIDER || '').toLowerCase();
 
@@ -26,7 +27,18 @@ const PROVIDER = (process.env.MAIL_PROVIDER || '').toLowerCase();
 // Users copy them with the spaces, which Gmail's SMTP rejects.
 const cleanPassword = (p) => (p || '').replace(/\s+/g, '');
 
+function parseSender(fromStr = '') {
+  const match = fromStr.match(/^(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)$/);
+  if (match) {
+    return { name: match[1]?.trim() || 'Disability Support IMS', email: match[2].trim() };
+  }
+  return { name: 'Disability Support IMS', email: fromStr.trim() || 'no-reply@disability-ims.rw' };
+}
+
 function buildTransport() {
+  if (PROVIDER === 'brevo' || (!PROVIDER && process.env.BREVO_API_KEY)) {
+    return null; // Brevo API uses direct HTTPS REST calls via fetch
+  }
   if (PROVIDER === 'gmail' && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     return nodemailer.createTransport({
       service: 'gmail',
@@ -51,6 +63,7 @@ function buildTransport() {
 const transport = buildTransport();
 
 const FROM = process.env.MAIL_FROM
+  || process.env.BREVO_SENDER_EMAIL
   || (PROVIDER === 'gmail' && process.env.GMAIL_USER
     ? `"Disability Support IMS" <${process.env.GMAIL_USER}>`
     : process.env.SMTP_FROM || 'no-reply@disability-ims.rw');
@@ -69,6 +82,24 @@ const REDIRECT_TO = (process.env.MAIL_REDIRECT_TO || '').trim();
 // Verify once at startup so a misconfigured password is discovered on
 // deploy rather than on the first beneficiary registration.
 export async function verifyMailer() {
+  if (PROVIDER === 'brevo' || (!transport && process.env.BREVO_API_KEY)) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/account', {
+        headers: { 'api-key': process.env.BREVO_API_KEY, 'Accept': 'application/json' },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Brevo API HTTP ${res.status}`);
+      }
+      const account = await res.json();
+      console.log(`[mail] Brevo API transport ready (account: ${account.email}, sender: ${FROM})`);
+      return { ready: true, mode: 'brevo' };
+    } catch (e) {
+      console.error('[mail] Brevo API verification FAILED:', e.message);
+      return { ready: false, mode: 'error', error: e.message };
+    }
+  }
+
   if (!transport) {
     console.log('[mail] No provider configured — emails will be logged to the console.');
     return { ready: false, mode: 'console' };
@@ -236,10 +267,46 @@ async function send(to, subject, spec) {
   const html = layout(finalSpec);
   const text = plain(finalSpec);
 
+  // 1. Brevo REST API
+  if (PROVIDER === 'brevo' || (!transport && process.env.BREVO_API_KEY)) {
+    try {
+      const sender = parseSender(FROM);
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: recipient }],
+          subject: finalSubject,
+          htmlContent: html,
+          textContent: text,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `Brevo API HTTP ${res.status}`);
+      }
+
+      const data = await res.json().catch(() => ({}));
+      return { delivered: true, messageId: data.messageId, redirected };
+    } catch (e) {
+      console.error(`[mail:brevo] send failed to=${to} subject="${subject}": ${e.message}`);
+      return { delivered: false, error: e.message };
+    }
+  }
+
+  // 2. Dev console logging mode (when no mail credentials are provided)
   if (!transport) {
     console.log(`[email:dev] to=${to} | ${subject}\n${text}\n`);
     return { delivered: false, logged: true };
   }
+
+  // 3. SMTP / Gmail transport
   try {
     const info = await transport.sendMail({ from: FROM, to: recipient, subject: finalSubject, text, html });
     return { delivered: true, messageId: info.messageId, redirected };
