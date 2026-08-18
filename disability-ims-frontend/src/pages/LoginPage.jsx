@@ -61,46 +61,41 @@ export default function LoginPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900/95 flex flex-col justify-between" style={{ zoom: a.zoom }}>
+    <div className="min-h-screen bg-slate-100/90 flex flex-col justify-between" style={{ zoom: a.zoom }}>
       {/* Top A11y Controls */}
       <div className="flex justify-end px-6 pt-3">
         <A11yBar />
       </div>
 
       {/* Main Container */}
-      <div className="w-full max-w-[1340px] mx-auto p-3 sm:p-6 lg:p-8 flex-1 flex items-center">
-        <div className="w-full grid lg:grid-cols-[1.15fr_1fr] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200/50 min-h-[680px]">
+      <div className="w-full max-w-[1360px] mx-auto p-3 sm:p-6 lg:p-8 flex-1 flex items-center">
+        <div className="w-full grid lg:grid-cols-[1.18fr_1fr] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 min-h-[680px]">
 
-          {/* ── LEFT HERO PANEL with Wallpaper ────────────────────────── */}
+          {/* ── LEFT HERO PANEL with Wallpaper (Clear & Visible) ────────────────────────── */}
           <div
             className="relative p-8 sm:p-12 lg:p-14 flex flex-col justify-between overflow-hidden text-white bg-cover bg-center"
             style={{
-              backgroundImage: `linear-gradient(135deg, rgba(6, 48, 25, 0.91) 0%, rgba(5, 40, 22, 0.85) 50%, rgba(7, 56, 30, 0.88) 100%), url('/login-bg.jpg')`,
+              backgroundImage: `linear-gradient(to bottom, rgba(15, 23, 42, 0.65) 0%, rgba(15, 23, 42, 0.15) 35%, rgba(15, 23, 42, 0.35) 60%, rgba(15, 23, 42, 0.85) 100%), url('/login-bg.jpg')`,
             }}
           >
-            {/* Ambient decorative elements */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-emerald-400/15 rounded-full blur-3xl pointer-events-none" />
-
             {/* Top Brand Header */}
-            <div className="relative z-10 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-800/80 border border-emerald-400/30 text-xl font-black italic tracking-tighter shadow-lg shadow-black/20">
+            <div className="relative z-10 flex items-center gap-4 bg-slate-900/50 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 w-fit">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 border border-emerald-300/40 text-xl font-black italic tracking-tighter shadow-md">
                 IDS
               </div>
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-white">{t('appName')}</h2>
-                <p className="text-xs font-medium text-emerald-200/90">{t.x('Inclusive registry & support coordination', 'Registry ibarura n’ubufasha bw’abafite ubumuga')}</p>
-                <div className="w-12 h-0.5 bg-emerald-400 mt-1 rounded-full" />
-                <p className="text-[11px] font-medium tracking-wide uppercase text-emerald-300/80 mt-0.5">Kamonyi District</p>
+                <h2 className="text-lg font-bold tracking-tight text-white">{t('appName')}</h2>
+                <p className="text-xs font-medium text-emerald-300">{t.x('Inclusive registry & support coordination', 'Registry ibarura n’ubufasha bw’abafite ubumuga')}</p>
+                <p className="text-[10px] font-semibold tracking-wider uppercase text-emerald-200 mt-0.5">Kamonyi District</p>
               </div>
             </div>
 
-            {/* Center Content */}
-            <div className="relative z-10 my-8 sm:my-10 max-w-xl">
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold leading-[1.18] tracking-tight text-white">
+            {/* Center Content with subtle frosted background for readability */}
+            <div className="relative z-10 my-6 max-w-xl bg-slate-950/45 backdrop-blur-sm p-6 rounded-3xl border border-white/15">
+              <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold leading-[1.22] tracking-tight text-white drop-shadow-md">
                 {t.x('One centralised registry. Support that reaches the right people.', 'Registry imwe. Ubufasha bugera ku bakwiye.')}
               </h1>
-              <p className="mt-5 text-[15px] sm:text-base text-emerald-100/90 leading-relaxed max-w-lg">
+              <p className="mt-3 text-[14px] sm:text-[15px] text-slate-100 leading-relaxed font-normal">
                 {t.x(
                   'A single accessible record coordinates support for persons with disabilities across Kamonyi District — with a recorded reason for every decision.',
                   "Inyandiko imwe igera kuri bose ihuza ubufasha bw'abafite ubumuga muri Kamonyi — buri cyemezo gifite impamvu yanditse.",
@@ -109,14 +104,14 @@ export default function LoginPage() {
             </div>
 
             {/* 4 Circular Pillars */}
-            <div className="relative z-10 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-3">
+            <div className="relative z-10 pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
               {pillars.map((p) => (
-                <div key={p.title} className="flex flex-col items-center text-center group">
-                  <div className="h-14 w-14 rounded-full bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-200 mb-2">
+                <div key={p.title} className="flex flex-col items-center text-center group bg-slate-900/60 backdrop-blur-md p-3 rounded-2xl border border-white/20">
+                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 border border-emerald-300/40 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-200 mb-1.5">
                     {p.icon}
                   </div>
-                  <span className="font-bold text-sm text-white tracking-wide">{p.title}</span>
-                  <span className="text-[11px] text-emerald-200/80 leading-tight mt-0.5">{p.desc}</span>
+                  <span className="font-bold text-xs text-white tracking-wide">{p.title}</span>
+                  <span className="text-[10px] text-slate-200 leading-tight mt-0.5">{p.desc}</span>
                 </div>
               ))}
             </div>
