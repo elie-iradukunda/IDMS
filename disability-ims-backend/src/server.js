@@ -12,6 +12,7 @@ import { AppError } from './services/registry.service.js';
 import { verifyMailer } from './services/notify.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PRODUCTION = process.env.NODE_ENV === 'production';
 
