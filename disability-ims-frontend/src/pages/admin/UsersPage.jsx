@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { UserPlus, Pencil, KeyRound, Power, Trash2 } from 'lucide-react';
+import { UserPlus, Pencil, KeyRound, Power, Trash2, Mail, Send } from 'lucide-react';
 import { post, patch, del } from '../../lib/api.js';
 import { useUI } from '../../context/UIContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -9,12 +9,12 @@ import { ROLES, SECTORS } from '../../lib/constants.js';
 import { Card, Badge, Loading, ErrorState, Empty } from '../../components/ui.jsx';
 import { FormModal, ConfirmModal } from '../../components/Modal.jsx';
 
-const STAFF_ROLES = ['OFFICER', 'PROVIDER', 'ADMIN'];
-const BLANK = { fullName: '', email: '', password: '', role: 'OFFICER', sector: '', providerId: '' };
+const ALL_ROLES = ['OFFICER', 'PROVIDER', 'ADMIN', 'BENEFICIARY'];
+const BLANK = { fullName: '', email: '', password: '', role: 'OFFICER', sector: '', providerId: '', inviteViaEmail: true };
 
-// Full user & role management (Objective 4 / RBAC): create staff accounts,
-// change roles, deactivate/reactivate, reset passwords and delete —
-// without touching beneficiary records.
+// Full user & role management: create users (Admin, Officer, Provider, Beneficiary),
+// invite them via email with a secure password reset link, change roles,
+// deactivate/reactivate, reset passwords and delete.
 export default function UsersPage() {
   const { t } = useUI();
   const { user: me } = useAuth();
@@ -55,7 +55,7 @@ export default function UsersPage() {
         </select>
         <button className="app-button" onClick={() => setDialog({ kind: 'create' })}>
           <UserPlus className="h-[16px] w-[16px]" aria-hidden="true" style={{ marginRight: 7 }} />
-          {t.x('Create staff account', "Kora konti y'umukozi")}
+          {t.x('Create user account', "Kora konti y'umukoresha")}
         </button>
       </div>
 
@@ -79,7 +79,7 @@ export default function UsersPage() {
                 {rows.map((u) => {
                   const meta = ROLES[u.role] || {};
                   const self = u.id === me?.id;
-                  const isBeneficiary = u.role === 'BENEFICIARY';
+                  const isBeneficiaryWithRecord = u.role === 'BENEFICIARY' && !!u.beneficiaryId;
                   return (
                     <tr key={u.id}>
                       <td style={{ fontWeight: 600 }}>
@@ -95,8 +95,13 @@ export default function UsersPage() {
                       <td><Badge tone={u.status === 'ACTIVE' ? 'green' : 'gray'}>{t(u.status || 'ACTIVE')}</Badge></td>
                       <td>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button className="btn ghost sm" disabled={isBeneficiary}
-                            title={isBeneficiary ? t.x('Beneficiary accounts are managed from the registry', 'Bicungirwa muri registry') : ''}
+                          <button className="btn ghost sm"
+                            onClick={() => setDialog({ kind: 'invite', u })}
+                            title={t.x('Send password reset / invitation email', 'Ohereza ubutumire / link yo guhindura ijambobanga')}
+                            aria-label={t.x(`Invite ${u.fullName} via email`, `Koherereza ubutumire ${u.fullName}`)}>
+                            <Mail className="h-[14px] w-[14px]" aria-hidden="true" />
+                          </button>
+                          <button className="btn ghost sm"
                             onClick={() => setDialog({ kind: 'edit', u })}
                             aria-label={t.x(`Edit ${u.fullName}`, `Hindura ${u.fullName}`)}>
                             <Pencil className="h-[14px] w-[14px]" aria-hidden="true" />
@@ -111,8 +116,9 @@ export default function UsersPage() {
                             aria-label={t.x(`Change status of ${u.fullName}`, `Hindura imimerere`)}>
                             <Power className="h-[14px] w-[14px]" aria-hidden="true" />
                           </button>
-                          <button className="btn red sm" disabled={self || isBeneficiary}
+                          <button className="btn red sm" disabled={self || isBeneficiaryWithRecord}
                             onClick={() => setDialog({ kind: 'delete', u })}
+                            title={isBeneficiaryWithRecord ? t.x('Beneficiary accounts linked to the registry are archived from the registry', 'Bicungirwa muri registry') : ''}
                             aria-label={t.x(`Delete ${u.fullName}`, `Siba ${u.fullName}`)}>
                             <Trash2 className="h-[14px] w-[14px]" aria-hidden="true" />
                           </button>
@@ -128,13 +134,14 @@ export default function UsersPage() {
 
         <small className="hint" style={{ display: 'block', marginTop: 12 }}>
           🔐 {t.x(
-            'Officers create and update records; beneficiaries read only their own and may ask for support; providers search and offer but cannot edit; administrators configure the system without silently altering beneficiary data. A beneficiary login is created and retired with its registry record, not here.',
-            'RBAC: umukozi ahindura; uwunguka areba uwe gusa; provider ashakisha atari uguhindura; admin agena sisitemu.')}
+            'Administrators can create all user types (Officers, Providers, Beneficiaries, Admins) and invite them via email with a secure link to set their passwords.',
+            'Ubuyobozi bushobora kurema abakoresha bose no kuboherereza ubutumire kuri imeyili bishyiriraho ijambobanga.')}
         </small>
       </Card>
 
       {dialog?.kind === 'create' && <UserDialog providers={providers.data || []} onClose={close} onDone={done} />}
       {dialog?.kind === 'edit' && <UserDialog u={dialog.u} providers={providers.data || []} onClose={close} onDone={done} />}
+      {dialog?.kind === 'invite' && <InviteDialog u={dialog.u} onClose={close} onDone={done} />}
       {dialog?.kind === 'status' && <StatusDialog u={dialog.u} onClose={close} onDone={done} />}
       {dialog?.kind === 'reset' && <ResetDialog u={dialog.u} onClose={close} onDone={done} />}
       {dialog?.kind === 'delete' && <DeleteDialog u={dialog.u} onClose={close} onDone={done} />}
@@ -142,13 +149,13 @@ export default function UsersPage() {
   );
 }
 
-// ── Create / edit a staff account ────────────────────────────
+// ── Create / edit a user account ────────────────────────────
 function UserDialog({ u, providers, onClose, onDone }) {
   const { t } = useUI();
   const first = useRef(null);
   const editing = !!u;
   const [f, setF] = useState(editing
-    ? { fullName: u.fullName, email: u.email, password: '', role: u.role, sector: u.sector || '', providerId: u.providerId || '' }
+    ? { fullName: u.fullName, email: u.email, password: '', role: u.role, sector: u.sector || '', providerId: u.providerId || '', inviteViaEmail: false }
     : BLANK);
   const m = useMutation();
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -157,7 +164,7 @@ function UserDialog({ u, providers, onClose, onDone }) {
     if (!f.fullName.trim() || !f.email.trim()) {
       return m.setError(t.x('Name and email are required.', "Izina n'imeyili birakenewe."));
     }
-    if (!editing && f.password && f.password.length < 8) {
+    if (!editing && !f.inviteViaEmail && f.password && f.password.length < 8) {
       return m.setError(t.x('Password must be at least 8 characters, or leave it blank to have one generated.',
         'Ijambobanga rigomba kuba nibura inyuguti 8.'));
     }
@@ -165,18 +172,27 @@ function UserDialog({ u, providers, onClose, onDone }) {
       return m.setError(t.x('Select a provider organisation.', 'Hitamo umuryango.'));
     }
     const body = {
-      fullName: f.fullName.trim(), email: f.email.trim(), role: f.role,
+      fullName: f.fullName.trim(),
+      email: f.email.trim(),
+      role: f.role,
       sector: f.role === 'OFFICER' ? f.sector : null,
       providerId: f.role === 'PROVIDER' ? Number(f.providerId) : null,
     };
-    if (!editing && f.password) body.password = f.password;
+    if (!editing) {
+      body.inviteViaEmail = f.inviteViaEmail;
+      if (!f.inviteViaEmail && f.password) {
+        body.password = f.password;
+      }
+    }
 
     return m.run(
       () => (editing ? patch(`/admin/users/${u.id}`, body) : post('/admin/users', body)),
       {
         success: editing
           ? t.x('Account updated', 'Byavuguruwe')
-          : t.x('Staff account created — credentials emailed', 'Konti yakozwe — imeyili yoherejwe'),
+          : f.inviteViaEmail
+            ? t.x('User account created — password invitation emailed!', 'Konti yakozwe — ubutumire bwoherejwe kuri imeyili!')
+            : t.x('User account created — credentials emailed', 'Konti yakozwe — imeyili yoherejwe'),
         then: onDone,
       },
     );
@@ -185,37 +201,86 @@ function UserDialog({ u, providers, onClose, onDone }) {
   return (
     <FormModal
       open onClose={onClose} size="md" busy={m.busy} error={m.error} initialFocus={first}
-      title={editing ? t.x(`Edit ${u.fullName}`, `Hindura ${u.fullName}`) : t.x('Create a staff account', "Kora konti y'umukozi")}
+      title={editing ? t.x(`Edit ${u.fullName}`, `Hindura ${u.fullName}`) : t.x('Create a user account', "Kora konti y'umukoresha")}
       subtitle={editing
-        ? t.x('Permissions attach to the role, not the person. Changing a role changes what this account can reach immediately.',
-          'Uburenganzira bushingira ku ruhare, atari ku muntu.')
-        : t.x('The account is created and its credentials are emailed to the address below. Leave the password blank to have the system generate one.',
-          'Konti irakorwa kandi ibimenyetso byo kwinjira byoherezwa kuri iyi imeyili.')}
-      submitLabel={editing ? t.x('Save changes', 'Bika') : t.x('Create account', 'Kora konti')}
+        ? t.x('Permissions attach to the role. Updating the role immediately changes access for this account.',
+          'Uburenganzira bushingira ku ruhare. Guhindura uruhare bihindura ubushobozi bwose bwa konti.')
+        : t.x('Create an account and invite the user via email with a secure link to set their own password.',
+          'Kora konti maze wohereze ubutumire kuri imeyili kugira ngo umukoresha yishyirireho ijambobanga.')}
+      submitLabel={editing ? t.x('Save changes', 'Bika') : t.x('Create user & send invitation', 'Kora konti & Ohereza ubutumire')}
       onSubmit={submit}
     >
       <div className="form-grid">
         <div>
           <label className="field-label" htmlFor="u-name">{t.x('Full name', 'Amazina')} *</label>
-          <input ref={first} id="u-name" className="app-input" value={f.fullName} onChange={set('fullName')} />
+          <input ref={first} id="u-name" className="app-input" value={f.fullName} onChange={set('fullName')} placeholder="e.g. Jean Damascene Nzeyimana" />
         </div>
         <div>
-          <label className="field-label" htmlFor="u-email">{t.x('Email', 'Imeyili')} *</label>
-          <input id="u-email" type="email" className="app-input" value={f.email} onChange={set('email')} />
+          <label className="field-label" htmlFor="u-email">{t.x('Email address', 'Imeyili')} *</label>
+          <input id="u-email" type="email" className="app-input" value={f.email} onChange={set('email')} placeholder="user@domain.rw" />
         </div>
         <div>
-          <label className="field-label" htmlFor="u-role">{t.x('Role', 'Uruhare')}</label>
+          <label className="field-label" htmlFor="u-role">{t.x('Role & permissions', 'Uruhare & Uburenganzira')}</label>
           <select id="u-role" className="app-select" value={f.role} onChange={set('role')}>
-            {STAFF_ROLES.map((r) => <option key={r} value={r}>{t(ROLES[r].key)}</option>)}
+            {ALL_ROLES.map((r) => <option key={r} value={r}>{t(ROLES[r]?.key || r)}</option>)}
           </select>
         </div>
+
         {!editing && (
-          <div>
-            <label className="field-label" htmlFor="u-pw">{t.x('Temporary password', "Ijambobanga ry'agateganyo")}</label>
-            <input id="u-pw" type="password" className="app-input" value={f.password} onChange={set('password')}
-              placeholder={t.x('Leave blank to generate', 'Reka ubusa bikorwe')} autoComplete="new-password" />
+          <div style={{ gridColumn: '1 / -1', background: 'var(--surface-2)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8, color: 'var(--ink)' }}>
+              {t.x('Password & Onboarding Method', 'Uburyo bwo gushyiraho ijambobanga')}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="inviteMode"
+                  checked={f.inviteViaEmail === true}
+                  onChange={() => setF({ ...f, inviteViaEmail: true, password: '' })}
+                  style={{ marginTop: 3 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                    {t.x('Invite via email (Recommended)', 'Ohereza ubutumire kuri imeyili (Byiza cyane)')}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                    {t.x('Sends an email invitation containing a secure link where the user sets their password.',
+                      'Bimwoherereza imeyili irimo link yo kwishyiriraho ijambobanga rishya.')}
+                  </div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 4 }}>
+                <input
+                  type="radio"
+                  name="inviteMode"
+                  checked={f.inviteViaEmail === false}
+                  onChange={() => setF({ ...f, inviteViaEmail: false })}
+                  style={{ marginTop: 3 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                    {t.x('Set manual or temporary password', "Shyiraho ijambobanga ry'agateganyo")}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                    {t.x('Specify a password now, or leave blank to generate a temporary one.',
+                      'Andika ijambobanga cyangwa usige ubusa rikorwe n\'ubundi.')}
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {!f.inviteViaEmail && (
+              <div style={{ marginTop: 12 }}>
+                <label className="field-label" htmlFor="u-pw">{t.x('Temporary password', "Ijambobanga ry'agateganyo")}</label>
+                <input id="u-pw" type="password" className="app-input" value={f.password} onChange={set('password')}
+                  placeholder={t.x('Leave blank to generate automatically', 'Reka ubusa ribe ryikora')} autoComplete="new-password" />
+              </div>
+            )}
           </div>
         )}
+
         {f.role === 'OFFICER' && (
           <div>
             <label className="field-label" htmlFor="u-sector">{t.x('Sector of responsibility', 'Umurenge akoreramo')}</label>
@@ -232,7 +297,7 @@ function UserDialog({ u, providers, onClose, onDone }) {
           <div>
             <label className="field-label" htmlFor="u-prov">{t.x('Provider organisation', 'Umuryango')} *</label>
             <select id="u-prov" className="app-select" value={f.providerId} onChange={set('providerId')}>
-              <option value="">{t.x('Select…', 'Hitamo…')}</option>
+              <option value="">{t.x('Select organisation…', 'Hitamo umuryango…')}</option>
               {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             {!providers.length && (
@@ -245,6 +310,27 @@ function UserDialog({ u, providers, onClose, onDone }) {
         )}
       </div>
     </FormModal>
+  );
+}
+
+// ── Send Email Invitation with Password Reset Link ──────────
+function InviteDialog({ u, onClose, onDone }) {
+  const { t } = useUI();
+  const m = useMutation();
+  return (
+    <ConfirmModal
+      open onClose={onClose} busy={m.busy} tone="green"
+      title={t.x(`Invite ${u.fullName} via email?`, `Koherereza ubutumire ${u.fullName}?`)}
+      message={t.x(
+        `An email invitation with a secure link to set/reset their password will be sent to ${u.email}. The user will be able to click the button in the email and choose their password immediately.`,
+        `Imeyili irimo link yo kwishyiriraho ijambobanga rishya igiye koherezwa kuri ${u.email}.`
+      )}
+      confirmLabel={t.x('Send invitation email', 'Ohereza ubutumire')}
+      onConfirm={() => m.run(() => post(`/admin/users/${u.id}/invite`), {
+        success: t.x('Invitation email sent successfully!', 'Ubutumire bwoherejwe neza!'),
+        then: onDone,
+      })}
+    />
   );
 }
 

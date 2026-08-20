@@ -205,6 +205,7 @@ router.get   ('/admin/users',                asAdmin, h(() => reports.listUsers(
 router.post  ('/admin/users',                asAdmin, h((req) => admin.createUser(req.user, req.body)));
 router.patch ('/admin/users/:id',            asAdmin, h((req) => admin.updateUser(req.user, +req.params.id, req.body)));
 router.post  ('/admin/users/:id/reset-password', asAdmin, h((req) => admin.resetUserPassword(req.user, +req.params.id)));
+router.post  ('/admin/users/:id/invite',     asAdmin, h((req) => admin.inviteUser(req.user, +req.params.id)));
 router.delete('/admin/users/:id',            asAdmin, h((req) => admin.deleteUser(req.user, +req.params.id)));
 
 // Oversight: the administrator monitors coverage and distribution, so they

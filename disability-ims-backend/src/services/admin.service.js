@@ -9,13 +9,14 @@ import crypto from 'crypto';
 import { fn, col } from 'sequelize';
 import { sequelize, User, Provider, SupportRequest } from '../models/index.js';
 import { AppError, audit, afterCommit } from './registry.service.js';
-import { sendStaffAccount, sendAccountDeactivated } from './notify.js';
+import { sendStaffAccount, sendAccountDeactivated, sendUserInvitation } from './notify.js';
 
 const bad = (m) => { throw new AppError(400, m); };
 const forbid = (m) => { throw new AppError(403, m); };
 const notFound = (m) => { throw new AppError(404, m); };
+const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
-const STAFF_ROLES = ['OFFICER', 'PROVIDER', 'ADMIN'];
+const ALL_ROLES = ['OFFICER', 'PROVIDER', 'ADMIN', 'BENEFICIARY'];
 const pub = (u) => ({
   id: u.id, fullName: u.fullName, email: u.email, role: u.role, status: u.status,
   sector: u.sector, providerId: u.providerId, beneficiaryId: u.beneficiaryId, language: u.language,
@@ -88,18 +89,12 @@ export async function deleteProvider(admin, id) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// STAFF ACCOUNTS
+// USER ACCOUNTS & INVITATIONS
 // ══════════════════════════════════════════════════════════════
-export async function createUser(admin, { fullName, email, password, role, sector, providerId }) {
+export async function createUser(admin, { fullName, email, password, role, sector, providerId, beneficiaryId, inviteViaEmail = true }) {
   if (!fullName?.trim() || !email?.trim()) bad('Full name and email are required');
-  if (!STAFF_ROLES.includes(role)) bad('Role must be OFFICER, PROVIDER or ADMIN');
+  if (!ALL_ROLES.includes(role)) bad('Role must be OFFICER, PROVIDER, ADMIN or BENEFICIARY');
   if (role === 'PROVIDER' && !providerId) bad('Select a provider organisation for a provider account');
-
-  // An administrator may set a password, or leave it blank and have the
-  // system generate one and email it — the same path a beneficiary gets.
-  const generated = !password;
-  const tempPassword = password || crypto.randomBytes(6).toString('base64url');
-  if (!generated && password.length < 8) bad('Password must be at least 8 characters');
 
   const normalised = email.trim().toLowerCase();
   const existing = await User.findOne({ where: { email: normalised } });
@@ -110,19 +105,114 @@ export async function createUser(admin, { fullName, email, password, role, secto
     if (!org) bad('That provider organisation does not exist');
   }
 
+  let tempPassword = null;
+  let rawToken = null;
+  let passwordHash = null;
+  let resetTokenHash = null;
+  let resetTokenExpiry = null;
+
+  if (inviteViaEmail) {
+    // Generate secure invitation token for password setup / reset
+    rawToken = crypto.randomBytes(32).toString('hex');
+    resetTokenHash = sha256(rawToken);
+    resetTokenExpiry = new Date(Date.now() + 7 * 24 * 3600e3); // 7 days
+    const randomInitial = crypto.randomBytes(16).toString('base64url');
+    passwordHash = await bcrypt.hash(randomInitial, 10);
+  } else {
+    // Administrator sets password or system generates temporary password
+    const generated = !password;
+    tempPassword = password || crypto.randomBytes(6).toString('base64url');
+    if (!generated && password.length < 8) bad('Password must be at least 8 characters');
+    passwordHash = await bcrypt.hash(tempPassword, 10);
+  }
+
   const created = await sequelize.transaction(async (t) => {
     const u = await User.create({
-      fullName: fullName.trim(), email: normalised, role,
+      fullName: fullName.trim(),
+      email: normalised,
+      role,
       sector: role === 'OFFICER' ? (sector || null) : null,
       providerId: role === 'PROVIDER' ? providerId : null,
-      passwordHash: await bcrypt.hash(tempPassword, 10),
+      beneficiaryId: role === 'BENEFICIARY' ? (beneficiaryId || null) : null,
+      passwordHash,
+      resetTokenHash,
+      resetTokenExpiry,
     }, { transaction: t });
-    await audit(t, { actorId: admin.id, actorName: admin.fullName, action: `Created ${role} account ${u.email}`, entity: `User:${u.id}` });
+    await audit(t, {
+      actorId: admin.id,
+      actorName: admin.fullName,
+      action: inviteViaEmail
+        ? `Created and invited ${role} account ${u.email} via email`
+        : `Created ${role} account ${u.email}`,
+      entity: `User:${u.id}`,
+    });
     return u;
   });
 
-  afterCommit(() => sendStaffAccount({ to: normalised, name: created.fullName, role, tempPassword }));
-  return { ...pub(created), credentials: { emailedTo: normalised, generated } };
+  if (inviteViaEmail) {
+    afterCommit(() => sendUserInvitation({
+      to: normalised,
+      name: created.fullName,
+      role,
+      token: rawToken,
+      invitedBy: admin.fullName,
+    }));
+  } else {
+    afterCommit(() => sendStaffAccount({
+      to: normalised,
+      name: created.fullName,
+      role,
+      tempPassword,
+    }));
+  }
+
+  return {
+    ...pub(created),
+    credentials: {
+      emailedTo: normalised,
+      invited: inviteViaEmail,
+      generated: !inviteViaEmail && !password,
+      devResetToken: process.env.NODE_ENV === 'development' ? rawToken : undefined,
+    },
+  };
+}
+
+// ── Invite an existing user via email (send password reset / activation link) ──
+export async function inviteUser(admin, id) {
+  const u = await User.findByPk(id);
+  if (!u) notFound('User not found');
+  if (u.status === 'INACTIVE') bad('Cannot invite a deactivated account. Reactivate the account first.');
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = sha256(rawToken);
+  const tokenExpiry = new Date(Date.now() + 7 * 24 * 3600e3); // 7 days
+
+  await sequelize.transaction(async (t) => {
+    await u.update({
+      resetTokenHash: tokenHash,
+      resetTokenExpiry: tokenExpiry,
+    }, { transaction: t });
+    await audit(t, {
+      actorId: admin.id,
+      actorName: admin.fullName,
+      action: `Sent email invitation/reset link to ${u.email}`,
+      entity: `User:${u.id}`,
+    });
+  });
+
+  afterCommit(() => sendUserInvitation({
+    to: u.email,
+    name: u.fullName,
+    role: u.role,
+    token: rawToken,
+    invitedBy: admin.fullName,
+  }));
+
+  return {
+    ok: true,
+    emailedTo: u.email,
+    devResetToken: process.env.NODE_ENV === 'development' ? rawToken : undefined,
+  };
 }
 
 // ── Update role, status or profile of a user ──
@@ -144,15 +234,19 @@ export async function updateUser(admin, id, patch) {
     data.email = normalised;
   }
   if (patch.sector !== undefined) data.sector = patch.sector || null;
-  if (patch.providerId !== undefined && u.role === 'PROVIDER') {
+  if (patch.providerId !== undefined && (patch.role === 'PROVIDER' || u.role === 'PROVIDER')) {
     if (patch.providerId && !(await Provider.findByPk(patch.providerId))) bad('That provider organisation does not exist');
     data.providerId = patch.providerId || null;
   }
-  if (patch.role && STAFF_ROLES.includes(patch.role) && u.role !== 'BENEFICIARY') {
+  if (patch.beneficiaryId !== undefined) {
+    data.beneficiaryId = patch.beneficiaryId || null;
+  }
+  if (patch.role && ALL_ROLES.includes(patch.role)) {
     if (patch.role === 'PROVIDER' && !(patch.providerId || u.providerId)) bad('A provider account needs a provider organisation');
     data.role = patch.role;
     if (patch.role !== 'OFFICER') data.sector = null;
     if (patch.role !== 'PROVIDER') data.providerId = null;
+    if (patch.role !== 'BENEFICIARY') data.beneficiaryId = null;
   }
   if (patch.status && ['ACTIVE', 'INACTIVE'].includes(patch.status)) data.status = patch.status;
   if (!Object.keys(data).length) bad('Nothing to update');
@@ -197,10 +291,10 @@ export async function deleteUser(admin, id) {
     const admins = await User.count({ where: { role: 'ADMIN' } });
     if (admins <= 1) forbid('Cannot delete the last administrator');
   }
-  // Deleting the login of a beneficiary would leave their registry record
-  // without an owner; deactivating preserves the record and its history.
-  if (u.role === 'BENEFICIARY') {
-    forbid('A beneficiary login cannot be deleted here — archive the beneficiary record in the registry instead');
+  // Deleting the login of a beneficiary linked to a registry record would leave
+  // that record without an owner; deactivating preserves the record and its history.
+  if (u.role === 'BENEFICIARY' && u.beneficiaryId) {
+    forbid('A beneficiary login linked to a registry record cannot be deleted here — archive the beneficiary record in the registry instead, or deactivate the account');
   }
   return sequelize.transaction(async (t) => {
     const label = `${u.email} (${u.role})`;

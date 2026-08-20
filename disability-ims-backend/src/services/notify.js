@@ -350,21 +350,58 @@ export const sendCredentials = ({ to, name, code, tempPassword }) => send(
 );
 
 // 2. Password reset (single-use token, 1 hour).
-export const sendResetToken = ({ to, token }) => send(
-  to, 'Password reset · Guhindura ijambobanga',
-  {
-    badge: 'PASSWORD RESET',
-    tone: 'amber',
-    preheader: 'Your single-use reset code, valid for one hour.',
-    title: 'Reset your password',
-    lines: [
-      'Use the code below to set a new password. It can be used once and expires in one hour.',
-      'Koresha iyi kode uhindure ijambobanga. Ikoreshwa rimwe gusa kandi imara isaha imwe.',
-    ],
-    callout: token,
-    footnote: 'If you did not ask for this, you can ignore this message — your password stays unchanged. Niba atari wowe wabisabye, irengagize ubu butumwa.',
-  },
-);
+export const sendResetToken = ({ to, token }) => {
+  const resetUrl = `${APP_URL}/forgot-password?token=${encodeURIComponent(token)}`;
+  return send(
+    to, 'Password reset · Guhindura ijambobanga',
+    {
+      badge: 'PASSWORD RESET',
+      tone: 'amber',
+      preheader: 'Your single-use reset code, valid for one hour.',
+      title: 'Reset your password',
+      lines: [
+        'Click the button below to set a new password, or use the code directly on the reset page. It can be used once and expires in one hour.',
+        'Kanda kuri buto iri hasi uhindure ijambobanga rishya, cyangwa ukoreshe iyi kode. Ikoreshwa rimwe gusa kandi imara isaha imwe.',
+      ],
+      callout: token,
+      action: { label: 'Reset password / Guhindura ijambobanga', url: resetUrl },
+      footnote: 'If you did not ask for this, you can ignore this message — your password stays unchanged. Niba atari wowe wabisabye, irengagize ubu butumwa.',
+    },
+  );
+};
+
+// 2b. User account invitation (email with direct password reset / setup link).
+export const sendUserInvitation = ({ to, name, role, token, invitedBy }) => {
+  const inviteUrl = `${APP_URL}/forgot-password?token=${encodeURIComponent(token)}`;
+  const roleLabels = {
+    ADMIN: 'Administrator / Umuyobozi',
+    OFFICER: 'Sector Officer / Umukozi w\'Akarere',
+    PROVIDER: 'Support Provider / Umuterankunga',
+    BENEFICIARY: 'Beneficiary / Uwunguka',
+  };
+  const roleLabel = roleLabels[role] || role;
+
+  return send(
+    to, 'Account Invitation — Set your password · Ubutumire muri Sisitemu',
+    {
+      badge: 'ACCOUNT INVITATION',
+      tone: 'green',
+      preheader: `You have been invited to Disability Support IMS as ${roleLabel}. Click below to set your password.`,
+      title: `Muraho ${name}, you're invited to join`,
+      lines: [
+        `An account has been created for you on the Inclusive Disability Support IMS${invitedBy ? ` by ${invitedBy}` : ''}.`,
+        `Wahawe konti muri Sisitemu y'Amakuru yo Gushyigikira Abafite Ubumuga. Kanda kuri buto ikurikira kugira ngo ushyireho ijambobanga ryawe wenyine utangire gukoresha sisitemu.`,
+        'Click the button below to activate your account and choose your secure password. For security, this invitation link is unique to you.',
+      ],
+      facts: [
+        ['Email / Imeyili', to],
+        ['Role / Uruhare', roleLabel],
+      ],
+      action: { label: 'Set your password & Activate / Shyiraho ijambobanga', url: inviteUrl },
+      footnote: 'If the button does not work, copy and paste this link into your browser: ' + inviteUrl + ' · Please do not share this link with anyone.',
+    },
+  );
+};
 
 // 3. New opportunity / announcement published (Objective 4).
 export const sendOpportunity = ({ to, kind, title, org, detail }) => send(
